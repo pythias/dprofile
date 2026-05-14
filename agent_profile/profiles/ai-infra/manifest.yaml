@@ -1,0 +1,10 @@
+name: ai-infra
+description: 推理架构 / GPU / vLLM / MCP / Agent Runtime
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - ai-infra
+  - inference
+  - agents

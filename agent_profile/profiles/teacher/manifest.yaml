@@ -1,0 +1,10 @@
+name: teacher
+description: 教学 / 分步骤 / 类比解释
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - education
+  - teaching
+  - explanation

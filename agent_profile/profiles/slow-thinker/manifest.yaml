@@ -1,0 +1,10 @@
+name: slow-thinker
+description: 深分析 / 多方案比较 / 长推理
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - reasoning
+  - analysis
+  - strategy

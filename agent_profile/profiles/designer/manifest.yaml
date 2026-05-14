@@ -1,0 +1,10 @@
+name: designer
+description: UI 风格 / 信息图 / 视觉化表达
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - design
+  - visual
+  - ui

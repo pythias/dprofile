@@ -1,0 +1,10 @@
+name: founder-mode
+description: 战略 / 判断 / 优先级 / 增长
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - strategy
+  - startup
+  - growth

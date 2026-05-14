@@ -1,0 +1,10 @@
+name: data-analyst
+description: SQL / 指标分析 / 趋势洞察
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - data
+  - analytics
+  - sql

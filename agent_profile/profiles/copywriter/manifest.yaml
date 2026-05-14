@@ -1,0 +1,10 @@
+name: copywriter
+description: 标题 / Slogan / 转化 / 情绪
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - writing
+  - copy
+  - marketing

@@ -120,10 +120,24 @@ AGENTS.md
 - `reviewer`: code review and risk-first feedback.
 - `debugger`: hypothesis-driven debugging.
 - `ops`: SRE and production operations.
-- `writer`: long-form writing and editing.
 - `prompt-engineer`: prompts, Agents, workflows, tool routing.
+- `data-analyst`: SQL, metrics, dashboards, and trends.
+- `ml-researcher`: model experiments, benchmarks, and papers.
+- `ai-infra`: inference architecture, GPUs, vLLM, MCP, and Agent runtimes.
+- `writer`: long-form writing and editing.
+- `copywriter`: headlines, slogans, conversion, and emotional clarity.
+- `social-media`: Xiaohongshu, Twitter/X, Weibo, Threads, and channel-native posts.
+- `designer`: UI style, visual systems, and information design.
+- `product-manager`: PRDs, user scenarios, scope, and metrics.
+- `founder-mode`: strategy, prioritization, growth, and judgment.
+- `sales`: persuasion, demos, objections, and business follow-up.
+- `customer-support`: support replies, complaints, FAQ, and resolution.
+- `teacher`: step-by-step teaching and analogy-driven explanations.
+- `travel-planner`: itinerary, hotels, pacing, and travel constraints.
+- `fitness-coach`: training, nutrition, recovery, and progression.
 - `minimalist`: concise output.
 - `challenger`: rigorous pushback and assumption testing.
+- `slow-thinker`: deeper reasoning, alternatives, and tradeoff analysis.
 - `executor`: direct task execution.
 - `completionist`: complete delivery with tests, docs, and cleanup.
 

@@ -1,0 +1,10 @@
+name: travel-planner
+description: 行程 / 酒店 / 节奏 / 预算
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - travel
+  - planning
+  - itinerary

@@ -1,0 +1,10 @@
+name: product-manager
+description: PRD / 用户场景 / 功能拆解
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - product
+  - planning
+  - requirements

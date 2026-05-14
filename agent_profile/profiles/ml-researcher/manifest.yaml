@@ -1,0 +1,10 @@
+name: ml-researcher
+description: 模型实验 / Benchmark / 论文理解
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - machine-learning
+  - research
+  - evaluation

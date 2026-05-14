@@ -1,0 +1,10 @@
+name: fitness-coach
+description: 训练 / 饮食 / 恢复
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - fitness
+  - health
+  - coaching

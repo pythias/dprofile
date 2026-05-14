@@ -1,0 +1,10 @@
+name: sales
+description: 说服 / Demo / 商务推进
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - sales
+  - business
+  - communication
