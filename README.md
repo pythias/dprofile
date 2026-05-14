@@ -1,239 +1,121 @@
-# dprofile
+# 🎭 dprofile
+
+[![PyPI version](https://img.shields.io/pypi/v/dprofile.svg)](https://pypi.org/project/dprofile/)
+[![Python versions](https://img.shields.io/pypi/pyversions/dprofile.svg)](https://pypi.org/project/dprofile/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/pythias/dprofile/actions/workflows/ci.yml/badge.svg)](https://github.com/pythias/dprofile/actions/workflows/ci.yml)
+
+**Instant Persona Switching for AI Agents.**
+
+`dprofile` is a safe, deterministic profile switcher designed for the modern Agent era. It treats persona sets (`USER.md`, `SOUL.md`, `AGENTS.md`) as atomic units, allowing both humans and AI Agents to swap identities in milliseconds.
 
 [中文版 (Chinese Version)](README_zh.md)
 
-Agent Profile Switcher for `USER.md`, `SOUL.md`, and `AGENTS.md` persona sets.
+---
 
-`dprofile` is built for Agents, not just humans. It gives an Agent a safe, deterministic way to switch a target Agent configuration directory to a predefined profile.
+## ✨ Key Features
 
-The profile library lives in this project. The target directory is provided by the Agent at runtime.
+- **🤖 Agent-Native**: Designed to be called by Agents to self-evolve or switch sub-agent configurations.
+- **🛡️ Safety First**: Automatic backups, state tracking, and validation of target directories.
+- **🏗️ The Three-Layer Model**:
+    - `USER.md`: Who you are helping (Background & Preferences).
+    - `SOUL.md`: Who you are (Identity & Values).
+    - `AGENTS.md`: How you work (Tools & Protocols).
+- **🔗 Hybrid Modes**: Switch via **Symlinks** (for live updates) or **Copy** (for portable exports).
 
-## Why
-
-Modern Agent workflows need more than a temporary prompt. A useful Agent profile usually has three separate layers:
-
-- `USER.md`: who the Agent is helping, including background, preferences, and constraints.
-- `SOUL.md`: who the Agent should be, including identity, values, voice, and standards.
-- `AGENTS.md`: how the Agent should work, including tools, workflow, safety, and failure handling.
-
-`dprofile` treats those three files as one switchable profile.
-
-## Safety Model
-
-The CLI does not guess system-level Agent directories.
-
-The Agent using this skill must identify the target configuration directory first:
-
-- If the user provides a path, use that path.
-- If the user clearly means the current workspace, use the workspace root.
-- If the target is a system-level Agent config directory, ask the user to provide or confirm the exact path.
-- If the target is ambiguous, ask before changing files.
-
-Before switching, `dprofile` backs up existing target files into `.agent-profile-backups/` and writes `.agent-profile-state.json` so the active profile is inspectable.
-
-## Install
+## 🚀 Install
 
 ```bash
 pip install dprofile
 ```
 
-For development or using the local wrapper:
+---
 
-```bash
-# Clone the repository
-git clone https://github.com/pythias/dprofile.git
-cd dprofile
-
-# Install in editable mode
-pip install -e .
-```
-
-After installation, use the CLI:
-
-```bash
-dprofile list
-```
-
-Without installing, use the local wrapper:
-
-```bash
-python3 scripts/agent_profile.py list
-```
-
-## Usage Patterns
-
-`dprofile` is designed for two primary scenarios:
+## 📖 Usage Patterns
 
 ### 1. Agent-Driven (Automation)
-Agents can use this tool to autonomously switch their own identity or the identity of a sub-agent. By providing the target configuration directory, the Agent can "become" any profile in the library.
+Agents use `dprofile` to autonomously switch their own identity or configure specialized workers.
 
 ```bash
-# Example instruction for an Agent:
-# "Switch my current persona to 'architect' in the current workspace."
+# Agent instruction: "Switch my persona to 'architect' in the current workspace."
 dprofile switch architect --target-dir .
 ```
 
 ### 2. Manual CLI (Human)
-Developers can manually manage agent configurations across different projects.
+Developers can manage agent personas across projects with zero friction.
 
 ```bash
-# List available personas
+# List all available personas
 dprofile list
 
 # Switch a local project config to 'coding' mode
 dprofile switch coding --target-dir ./my-project/.agent-config
 ```
 
-## Quick Start
+---
 
-List bundled profiles:
+## 🗃️ Bundled Profiles
 
-```bash
-dprofile list
-```
-
-Switch a target Agent config directory to `completionist`:
-
-```bash
-dprofile switch completionist --target-dir /path/to/agent-config
-```
-
-Show the active profile for a target directory:
-
-```bash
-dprofile show --target-dir /path/to/agent-config
-```
-
-Validate the target directory before switching:
-
-```bash
-dprofile validate-target --target-dir /path/to/agent-config
-```
-
-Compare two profiles:
-
-```bash
-dprofile diff architect writer
-```
-
-## Write Modes
-
-By default, switching uses symlinks:
-
-```bash
-dprofile switch architect --target-dir /path/to/agent-config
-```
-
-Use copy mode for portable exports, system-level directories, or tools that do not preserve symlinks:
-
-```bash
-dprofile switch architect --target-dir /path/to/agent-config --mode copy
-```
-
-## Custom Profile Library
-
-Use `--profiles-dir` to point at another profile library:
-
-```bash
-dprofile list --profiles-dir /path/to/profiles
-dprofile switch ops --profiles-dir /path/to/profiles --target-dir /path/to/agent-config
-```
-
-Each profile directory must contain:
-
-```text
-manifest.yaml
-USER.md
-SOUL.md
-AGENTS.md
-```
-
-## Bundled Profiles
+`dprofile` comes with 25+ production-ready personas categorized for quick access:
 
 ### 🏗️ Engineering & AI
-- `architect`: System boundaries and engineering decisions. **Recommended for**: Lead engineers, system designers.
-- `coding`: Direct implementation and fixes. **Recommended for**: Developers, individual contributors.
-- `reviewer`: Risk-first feedback and code quality. **Recommended for**: PR reviewers, quality gatekeepers.
-- `debugger`: Hypothesis-driven root cause analysis. **Recommended for**: Bug hunters, on-call engineers.
-- `ops`: SRE, production, and infrastructure. **Recommended for**: DevOps, platform engineers.
-- `ai-infra`: GPUs, vLLM, MCP, and inference. **Recommended for**: AI platform engineers.
-- `ml-researcher`: Model experiments and benchmarks. **Recommended for**: Data scientists, ML engineers.
+- `architect`: System boundaries and engineering decisions.
+- `coding`: Direct implementation and fixes.
+- `reviewer`: Risk-first feedback and code quality.
+- `debugger`: Hypothesis-driven root cause analysis.
+- `ops`: SRE, production, and infrastructure.
+- `ai-infra`: GPUs, vLLM, MCP, and inference optimization.
+- `ml-researcher`: Model experiments and benchmarks.
 
 ### 📝 Content & Design
-- `writer`: Long-form content and editing. **Recommended for**: Bloggers, documentation writers.
-- `copywriter`: Conversion, headlines, and clarity. **Recommended for**: Marketers, growth hackers.
-- `social-media`: Platform-native posts (X, Red, Weibo). **Recommended for**: Social media managers.
-- `designer`: UI systems and visual design. **Recommended for**: Product designers, UI/UX engineers.
+- `writer`: Long-form content and editing.
+- `copywriter`: Conversion, headlines, and clarity.
+- `social-media`: Platform-native posts (X, Red, Weibo).
+- `designer`: UI systems and visual design.
 
 ### 🚀 Strategy & Product
-- `product-manager`: Scenarios, scope, and PRDs. **Recommended for**: PMs, product owners.
-- `founder-mode`: High-leverage judgment and growth. **Recommended for**: Founders, tech leads.
-- `sales`: Persuasion, demos, and follow-ups. **Recommended for**: Sales engineers, account managers.
-- `customer-support`: Resolution and FAQ management. **Recommended for**: Support leads, community managers.
-
-### 🎓 Education & Life
-- `teacher`: Step-by-step analogy-driven learning. **Recommended for**: Educators, tutors.
-- `travel-planner`: Itineraries and constraints. **Recommended for**: Travel enthusiasts.
-- `fitness-coach`: Training, recovery, and nutrition. **Recommended for**: Athletes, health-conscious users.
+- `product-manager`: Scenarios, scope, and PRDs.
+- `founder-mode`: High-leverage judgment and growth.
+- `sales`: Persuasion, demos, and follow-ups.
+- `customer-support`: Resolution and FAQ management.
 
 ### 🧠 Critical Thinking & Utility
-- `slow-thinker`: Deep reasoning and alternatives. **Recommended for**: Strategic planners, researchers.
-- `challenger`: Rigorous pushback and assumption testing. **Recommended for**: Critics, peer reviewers.
-- `minimalist`: Extreme conciseness. **Recommended for**: Quick status updates, power users.
-- `prompt-engineer`: Agent workflows and tool routing. **Recommended for**: LLM developers.
-- `executor`: Direct, no-nonsense task execution. **Recommended for**: Task-oriented workflows.
-- `completionist`: End-to-end delivery with tests/docs. **Recommended for**: Production-ready PRs.
+- `slow-thinker`: Deep reasoning and alternatives.
+- `challenger`: Rigorous pushback and assumption testing.
+- `minimalist`: Extreme conciseness.
+- `prompt-engineer`: Agent workflows and tool routing.
+- `executor`: Direct task execution.
+- `completionist`: End-to-end delivery with tests/docs.
 
-## Commands
+---
 
+## 🛠️ Commands
+
+| Command | Description |
+| :--- | :--- |
+| `dprofile list` | List all available profiles in the library. |
+| `dprofile switch` | Switch target directory to a specific profile. |
+| `dprofile show` | Inspect current state or a specific profile. |
+| `dprofile diff` | Compare two profiles side-by-side. |
+| `dprofile validate-target` | Ensure a directory is safe for profile management. |
+
+---
+
+## 🤝 Development & Release
+
+### Testing
 ```bash
-dprofile list [--profiles-dir DIR] [--target-dir DIR]
-dprofile validate-profile [PROFILE] [--profiles-dir DIR]
-dprofile validate-target --target-dir DIR
-dprofile switch PROFILE --target-dir DIR [--profiles-dir DIR] [--mode symlink|copy]
-dprofile show [PROFILE] [--target-dir DIR] [--profiles-dir DIR]
-dprofile diff LEFT RIGHT [--profiles-dir DIR]
+python3 -m unittest discover -s tests -v
 ```
 
-The legacy command name `agent-profile` is also installed for compatibility.
+### Publishing a Release
+1. Update version in `pyproject.toml` and `agent_profile/__init__.py`.
+2. Create and push a tag:
+   ```bash
+   git tag v0.1.1
+   git push origin main && git push origin v0.1.1
+   ```
 
-## Development
-
-Run tests:
-
-```bash
-python3 -m unittest tests/test_agent_profile.py -v
-```
-
-Validate bundled profiles:
-
-```bash
-python3 scripts/agent_profile.py validate-profile
-```
-
-## Release
-
-Releases are published by GitHub Actions with PyPI Trusted Publishing. This avoids storing a PyPI API token in GitHub secrets.
-
-Configure the PyPI project publisher with:
-
-```text
-Owner: pythias
-Repository name: dprofile
-Workflow name: publish.yml
-Environment name: pypi
-```
-
-Then bump the version in `pyproject.toml` and `agent_profile/__init__.py`, commit, tag, and push:
-
-```bash
-git tag v0.1.1
-git push origin main
-git push origin v0.1.1
-```
-
-The `Publish to PyPI` workflow will run tests, validate bundled profiles, build the source and wheel distributions, run `twine check`, and upload to PyPI.
-
-## License
+## 📄 License
 
 MIT
