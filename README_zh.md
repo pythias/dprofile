@@ -31,13 +31,22 @@ CLI 工具不会猜测系统级的 Agent 目录。
 
 ## 安装
 
-从克隆的仓库安装：
-
 ```bash
-python3 -m pip install -e .
+pip install dprofile
 ```
 
-然后运行：
+用于开发或直接运行本地脚本：
+
+```bash
+# 克隆仓库
+git clone https://github.com/pythias/dprofile.git
+cd dprofile
+
+# 以可编辑模式安装
+pip install -e .
+```
+
+安装完成后，直接使用 CLI 命令：
 
 ```bash
 dprofile list

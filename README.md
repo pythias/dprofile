@@ -33,13 +33,22 @@ Before switching, `dprofile` backs up existing target files into `.agent-profile
 
 ## Install
 
-From a clone:
-
 ```bash
-python3 -m pip install -e .
+pip install dprofile
 ```
 
-Then:
+For development or using the local wrapper:
+
+```bash
+# Clone the repository
+git clone https://github.com/pythias/dprofile.git
+cd dprofile
+
+# Install in editable mode
+pip install -e .
+```
+
+After installation, use the CLI:
 
 ```bash
 dprofile list
