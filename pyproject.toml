@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Agent profile switcher for USER.md, SOUL.md, and AGENTS.md persona sets."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
   { name = "pythias" }
 ]
@@ -16,7 +17,6 @@ keywords = ["agent", "profile", "persona", "prompt", "skill"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Software Development :: Libraries :: Python Modules",
