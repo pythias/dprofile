@@ -51,6 +51,30 @@ Without installing, use the local wrapper:
 python3 scripts/agent_profile.py list
 ```
 
+## Usage Patterns
+
+`dprofile` is designed for two primary scenarios:
+
+### 1. Agent-Driven (Automation)
+Agents can use this tool to autonomously switch their own identity or the identity of a sub-agent. By providing the target configuration directory, the Agent can "become" any profile in the library.
+
+```bash
+# Example instruction for an Agent:
+# "Switch my current persona to 'architect' in the current workspace."
+dprofile switch architect --target-dir .
+```
+
+### 2. Manual CLI (Human)
+Developers can manually manage agent configurations across different projects.
+
+```bash
+# List available personas
+dprofile list
+
+# Switch a local project config to 'coding' mode
+dprofile switch coding --target-dir ./my-project/.agent-config
+```
+
 ## Quick Start
 
 List bundled profiles:

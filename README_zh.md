@@ -49,6 +49,30 @@ dprofile list
 python3 scripts/agent_profile.py list
 ```
 
+## 使用模式
+
+`dprofile` 设计了两种主要使用场景：
+
+### 1. Agent 驱动（自动化）
+Agent 可以利用此工具自主切换自身或子 Agent 的身份。通过提供目标配置目录，Agent 能够“化身”为库中的任何角色。
+
+```bash
+# Agent 的操作指令示例：
+# “将我当前在工作区中的人格切换为 'architect'（架构师）。”
+dprofile switch architect --target-dir .
+```
+
+### 2. 手动 CLI（人工操作）
+开发者可以手动管理不同项目中的 Agent 配置。
+
+```bash
+# 列出所有可用人格
+dprofile list
+
+# 将本地项目的配置切换为 'coding'（编码）模式
+dprofile switch coding --target-dir ./my-project/.agent-config
+```
+
 ## 快速上手
 
 列出内置的 Profile：
