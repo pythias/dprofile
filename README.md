@@ -166,6 +166,29 @@ Validate bundled profiles:
 python3 scripts/agent_profile.py validate-profile
 ```
 
+## Release
+
+Releases are published by GitHub Actions with PyPI Trusted Publishing. This avoids storing a PyPI API token in GitHub secrets.
+
+Configure the PyPI project publisher with:
+
+```text
+Owner: pythias
+Repository name: dprofile
+Workflow name: publish.yml
+Environment name: pypi
+```
+
+Then bump the version in `pyproject.toml` and `agent_profile/__init__.py`, commit, tag, and push:
+
+```bash
+git tag v0.1.1
+git push origin main
+git push origin v0.1.1
+```
+
+The `Publish to PyPI` workflow will run tests, validate bundled profiles, build the source and wheel distributions, run `twine check`, and upload to PyPI.
+
 ## License
 
 MIT
