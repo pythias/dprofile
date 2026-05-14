@@ -1,5 +1,7 @@
 # dprofile
 
+[中文版 (Chinese Version)](README_zh.md)
+
 Agent Profile Switcher for `USER.md`, `SOUL.md`, and `AGENTS.md` persona sets.
 
 `dprofile` is built for Agents, not just humans. It gives an Agent a safe, deterministic way to switch a target Agent configuration directory to a predefined profile.
