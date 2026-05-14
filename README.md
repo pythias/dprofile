@@ -40,7 +40,7 @@ python3 -m pip install -e .
 Then:
 
 ```bash
-agent-profile list
+dprofile list
 ```
 
 Without installing, use the local wrapper:
@@ -54,31 +54,31 @@ python3 scripts/agent_profile.py list
 List bundled profiles:
 
 ```bash
-agent-profile list
+dprofile list
 ```
 
 Switch a target Agent config directory to `completionist`:
 
 ```bash
-agent-profile switch completionist --target-dir /path/to/agent-config
+dprofile switch completionist --target-dir /path/to/agent-config
 ```
 
 Show the active profile for a target directory:
 
 ```bash
-agent-profile show --target-dir /path/to/agent-config
+dprofile show --target-dir /path/to/agent-config
 ```
 
 Validate the target directory before switching:
 
 ```bash
-agent-profile validate-target --target-dir /path/to/agent-config
+dprofile validate-target --target-dir /path/to/agent-config
 ```
 
 Compare two profiles:
 
 ```bash
-agent-profile diff architect writer
+dprofile diff architect writer
 ```
 
 ## Write Modes
@@ -86,13 +86,13 @@ agent-profile diff architect writer
 By default, switching uses symlinks:
 
 ```bash
-agent-profile switch architect --target-dir /path/to/agent-config
+dprofile switch architect --target-dir /path/to/agent-config
 ```
 
 Use copy mode for portable exports, system-level directories, or tools that do not preserve symlinks:
 
 ```bash
-agent-profile switch architect --target-dir /path/to/agent-config --mode copy
+dprofile switch architect --target-dir /path/to/agent-config --mode copy
 ```
 
 ## Custom Profile Library
@@ -100,8 +100,8 @@ agent-profile switch architect --target-dir /path/to/agent-config --mode copy
 Use `--profiles-dir` to point at another profile library:
 
 ```bash
-agent-profile list --profiles-dir /path/to/profiles
-agent-profile switch ops --profiles-dir /path/to/profiles --target-dir /path/to/agent-config
+dprofile list --profiles-dir /path/to/profiles
+dprofile switch ops --profiles-dir /path/to/profiles --target-dir /path/to/agent-config
 ```
 
 Each profile directory must contain:
@@ -144,13 +144,15 @@ AGENTS.md
 ## Commands
 
 ```bash
-agent-profile list [--profiles-dir DIR] [--target-dir DIR]
-agent-profile validate-profile [PROFILE] [--profiles-dir DIR]
-agent-profile validate-target --target-dir DIR
-agent-profile switch PROFILE --target-dir DIR [--profiles-dir DIR] [--mode symlink|copy]
-agent-profile show [PROFILE] [--target-dir DIR] [--profiles-dir DIR]
-agent-profile diff LEFT RIGHT [--profiles-dir DIR]
+dprofile list [--profiles-dir DIR] [--target-dir DIR]
+dprofile validate-profile [PROFILE] [--profiles-dir DIR]
+dprofile validate-target --target-dir DIR
+dprofile switch PROFILE --target-dir DIR [--profiles-dir DIR] [--mode symlink|copy]
+dprofile show [PROFILE] [--target-dir DIR] [--profiles-dir DIR]
+dprofile diff LEFT RIGHT [--profiles-dir DIR]
 ```
+
+The legacy command name `agent-profile` is also installed for compatibility.
 
 ## Development
 
