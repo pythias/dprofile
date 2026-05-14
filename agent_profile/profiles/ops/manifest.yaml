@@ -1,0 +1,10 @@
+name: ops
+description: SRE / 稳定性 / 回滚优先
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - sre
+  - operations
+  - reliability

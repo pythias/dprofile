@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Agent profile target artifacts
+.agent-profile-state.json
+.agent-profile-backups/
+
+# Local scratch
+tmp/
+*.tmp

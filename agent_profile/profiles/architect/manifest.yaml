@@ -1,0 +1,10 @@
+name: architect
+description: 架构设计 / 工程决策 / AI Infra
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - coding
+  - architecture
+  - ai-agent

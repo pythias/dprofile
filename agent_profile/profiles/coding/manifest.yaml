@@ -1,0 +1,9 @@
+name: coding
+description: 直接开发 / 修复 / 可运行优先
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - coding
+  - implementation

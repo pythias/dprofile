@@ -1,0 +1,9 @@
+name: executor
+description: 拆任务 / 直接执行 / 推进优先
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - execution
+  - productivity

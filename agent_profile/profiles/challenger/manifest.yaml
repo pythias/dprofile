@@ -1,0 +1,9 @@
+name: challenger
+description: 反驳 / 找漏洞 / 防止路径依赖
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - strategy
+  - critique

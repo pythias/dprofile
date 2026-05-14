@@ -1,0 +1,9 @@
+name: reviewer
+description: 代码审查 / 风险优先 / 边界条件
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - coding
+  - review

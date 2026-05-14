@@ -1,0 +1,9 @@
+name: writer
+description: 长文 / 结构化表达 / 内容打磨
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - writing
+  - content

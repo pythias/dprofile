@@ -1,0 +1,9 @@
+name: debugger
+description: 排障 / 假设驱动 / 最小复现
+files:
+  user: USER.md
+  soul: SOUL.md
+  agents: AGENTS.md
+tags:
+  - coding
+  - debugging
