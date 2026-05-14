@@ -141,31 +141,39 @@ AGENTS.md
 
 ## Bundled Profiles
 
-- `architect`: architecture, engineering decisions, AI infrastructure.
-- `coding`: direct implementation and fixes.
-- `reviewer`: code review and risk-first feedback.
-- `debugger`: hypothesis-driven debugging.
-- `ops`: SRE and production operations.
-- `prompt-engineer`: prompts, Agents, workflows, tool routing.
-- `data-analyst`: SQL, metrics, dashboards, and trends.
-- `ml-researcher`: model experiments, benchmarks, and papers.
-- `ai-infra`: inference architecture, GPUs, vLLM, MCP, and Agent runtimes.
-- `writer`: long-form writing and editing.
-- `copywriter`: headlines, slogans, conversion, and emotional clarity.
-- `social-media`: Xiaohongshu, Twitter/X, Weibo, Threads, and channel-native posts.
-- `designer`: UI style, visual systems, and information design.
-- `product-manager`: PRDs, user scenarios, scope, and metrics.
-- `founder-mode`: strategy, prioritization, growth, and judgment.
-- `sales`: persuasion, demos, objections, and business follow-up.
-- `customer-support`: support replies, complaints, FAQ, and resolution.
-- `teacher`: step-by-step teaching and analogy-driven explanations.
-- `travel-planner`: itinerary, hotels, pacing, and travel constraints.
-- `fitness-coach`: training, nutrition, recovery, and progression.
-- `minimalist`: concise output.
-- `challenger`: rigorous pushback and assumption testing.
-- `slow-thinker`: deeper reasoning, alternatives, and tradeoff analysis.
-- `executor`: direct task execution.
-- `completionist`: complete delivery with tests, docs, and cleanup.
+### 🏗️ Engineering & AI
+- `architect`: System boundaries and engineering decisions. **Recommended for**: Lead engineers, system designers.
+- `coding`: Direct implementation and fixes. **Recommended for**: Developers, individual contributors.
+- `reviewer`: Risk-first feedback and code quality. **Recommended for**: PR reviewers, quality gatekeepers.
+- `debugger`: Hypothesis-driven root cause analysis. **Recommended for**: Bug hunters, on-call engineers.
+- `ops`: SRE, production, and infrastructure. **Recommended for**: DevOps, platform engineers.
+- `ai-infra`: GPUs, vLLM, MCP, and inference. **Recommended for**: AI platform engineers.
+- `ml-researcher`: Model experiments and benchmarks. **Recommended for**: Data scientists, ML engineers.
+
+### 📝 Content & Design
+- `writer`: Long-form content and editing. **Recommended for**: Bloggers, documentation writers.
+- `copywriter`: Conversion, headlines, and clarity. **Recommended for**: Marketers, growth hackers.
+- `social-media`: Platform-native posts (X, Red, Weibo). **Recommended for**: Social media managers.
+- `designer`: UI systems and visual design. **Recommended for**: Product designers, UI/UX engineers.
+
+### 🚀 Strategy & Product
+- `product-manager`: Scenarios, scope, and PRDs. **Recommended for**: PMs, product owners.
+- `founder-mode`: High-leverage judgment and growth. **Recommended for**: Founders, tech leads.
+- `sales`: Persuasion, demos, and follow-ups. **Recommended for**: Sales engineers, account managers.
+- `customer-support`: Resolution and FAQ management. **Recommended for**: Support leads, community managers.
+
+### 🎓 Education & Life
+- `teacher`: Step-by-step analogy-driven learning. **Recommended for**: Educators, tutors.
+- `travel-planner`: Itineraries and constraints. **Recommended for**: Travel enthusiasts.
+- `fitness-coach`: Training, recovery, and nutrition. **Recommended for**: Athletes, health-conscious users.
+
+### 🧠 Critical Thinking & Utility
+- `slow-thinker`: Deep reasoning and alternatives. **Recommended for**: Strategic planners, researchers.
+- `challenger`: Rigorous pushback and assumption testing. **Recommended for**: Critics, peer reviewers.
+- `minimalist`: Extreme conciseness. **Recommended for**: Quick status updates, power users.
+- `prompt-engineer`: Agent workflows and tool routing. **Recommended for**: LLM developers.
+- `executor`: Direct, no-nonsense task execution. **Recommended for**: Task-oriented workflows.
+- `completionist`: End-to-end delivery with tests/docs. **Recommended for**: Production-ready PRs.
 
 ## Commands
 
