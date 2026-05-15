@@ -148,7 +148,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 ### 发布新版本
-1. 更新 `pyproject.toml` 和 `agent_profile/__init__.py` 中的版本号。
+1. 更新 `pyproject.toml` 和 `dprofile/__init__.py` 中的版本号。
 2. 创建并推送标签：
    ```bash
    git tag v0.1.1

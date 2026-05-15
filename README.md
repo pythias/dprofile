@@ -148,7 +148,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 ### Publishing a Release
-1. Update version in `pyproject.toml` and `agent_profile/__init__.py`.
+1. Update version in `pyproject.toml` and `dprofile/__init__.py`.
 2. Create and push a tag:
    ```bash
    git tag v0.1.1

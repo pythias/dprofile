@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CLI = REPO_ROOT / "scripts" / "agent_profile.py"
+CLI = REPO_ROOT / "scripts" / "dprofile.py"
 
 
 def write_profile(profiles_dir: Path, name: str, text: str) -> None:
@@ -70,7 +70,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Active profile: architect", result.stdout)
             self.assertIn(f"Target directory: {target_dir.resolve()}", result.stdout)
-            state = json.loads((target_dir / ".agent-profile-state.json").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["active_profile"], "architect")
             self.assertEqual(state["write_mode"], "symlink")
             for filename in ("USER.md", "SOUL.md", "AGENTS.md"):
@@ -99,7 +99,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((target_dir / "USER.md").is_symlink())
             self.assertIn("architecture", (target_dir / "USER.md").read_text(encoding="utf-8"))
-            state = json.loads((target_dir / ".agent-profile-state.json").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["write_mode"], "copy")
 
     def test_switch_backs_up_previous_target_files(self) -> None:
@@ -118,10 +118,10 @@ class AgentProfileTests(unittest.TestCase):
             result = run_cli(profiles_dir, "switch", "writer", "--target-dir", str(target_dir))
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            backups = list((target_dir / ".agent-profile-backups").iterdir())
+            backups = list((target_dir / ".dprofile-backups").iterdir())
             self.assertEqual(len(backups), 1)
             self.assertIn("architecture", (backups[0] / "USER.md").read_text(encoding="utf-8"))
-            state = json.loads((target_dir / ".agent-profile-state.json").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["active_profile"], "writer")
 
     def test_validate_profile_reports_missing_file(self) -> None:

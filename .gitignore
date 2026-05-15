@@ -23,9 +23,9 @@ env/
 .idea/
 .vscode/
 
-# Agent profile target artifacts
-.agent-profile-state.json
-.agent-profile-backups/
+# dprofile target artifacts
+.dprofile-state.json
+.dprofile-backups/
 
 # Local scratch
 tmp/

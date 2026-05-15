@@ -30,7 +30,7 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Validate bundled profiles
-        run: python scripts/agent_profile.py validate-profile
+        run: python scripts/dprofile.py validate-profile
 
       - name: Build package
         run: python -m build

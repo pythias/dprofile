@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manage USER.md/SOUL.md/AGENTS.md agent profile sets."""
+"""Manage dprofile persona sets."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from textwrap import dedent
 
 REQUIRED_FILES = ("USER.md", "SOUL.md", "AGENTS.md", "manifest.yaml")
 PROFILE_FILES = ("USER.md", "SOUL.md", "AGENTS.md")
-STATE_FILE = ".agent-profile-state.json"
-BACKUP_DIR = ".agent-profile-backups"
+STATE_FILE = ".dprofile-state.json"
+BACKUP_DIR = ".dprofile-backups"
 PROJECT_DIR = ".dprofile"
 PROJECT_STATE_FILE = "state.json"
 PROJECT_BACKUP_DIR = "backups"
@@ -135,7 +135,7 @@ def package_root() -> Path:
 
 
 def default_profiles_dir() -> Path:
-    env_dir = os.environ.get("AGENT_PROFILE_PROFILES_DIR")
+    env_dir = os.environ.get("DPROFILE_PROFILES_DIR")
     if env_dir:
         return Path(env_dir).expanduser().resolve()
     return package_root() / "profiles"
@@ -858,7 +858,7 @@ def add_common_profile_arg(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     formatter = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(
-        prog="agent-profile",
+        prog="dprofile",
         description="Manage dprofile persona sets for Agent configs and code project AI adapters.",
         epilog=TOP_LEVEL_EPILOG,
         formatter_class=formatter,

@@ -1,9 +1,9 @@
 ---
-name: agent-profile
-description: Use this skill whenever the user wants an Agent to switch, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "switch to architect", "use ops profile", "切到写作人格", "agent-profile switch", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must classify the target as either an Agent-owned configuration directory or a code project before changing files.
+name: dprofile
+description: Use this skill whenever the user wants an Agent to switch, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "switch to architect", "use ops profile", "切到写作人格", "dprofile switch", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must classify the target as either an Agent-owned configuration directory or a code project before changing files.
 ---
 
-# Agent Profile Switcher
+# dprofile
 
 This skill manages Agent profiles as complete working persona sets, not as one-off prompts.
 
@@ -46,8 +46,8 @@ target-agent-config/
   USER.md
   SOUL.md
   AGENTS.md
-  .agent-profile-state.json
-  .agent-profile-backups/
+  .dprofile-state.json
+  .dprofile-backups/
 ```
 
 If the target Agent has a different native file, generate that file instead. Examples:
