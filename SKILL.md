@@ -7,7 +7,7 @@ description: Use this skill whenever the user wants an Agent to apply, list, ins
 
 This skill manages Agent profiles as complete working persona sets, not as one-off prompts.
 
-This `SKILL.md` is the primary interface for Agent behavior. It defines judgment, target classification, adapter selection, and safety policy. The `dprofile` CLI is secondary: it is a deterministic executor for professional users, scripts, and Agents that need command help when the skill is not installed.
+This `SKILL.md` is the primary interface for Agent behavior. It defines judgment, target classification, adapter selection, and safety policy. The deterministic file runner is secondary: **`dprofile` CLI** when installed (`pip`), or **`python scripts/dprofile.py`** from the cloned repo root when not — cloning the repo is enough; do not insist on installing a separate CLI for skill-only workflows.
 
 The skill directory is the profile library. It is not necessarily the active Agent configuration directory, and it is not necessarily a code project that should receive generated files.
 
@@ -42,10 +42,20 @@ The `apply` command handles Agent configs and code projects: it writes `.dprofil
 3. **Local** (default): current directory. **Global** (`-g`): standard homes such as `~/.claude`.
 
 ```bash
+python scripts/dprofile.py apply linux-expert --ai claude -g
+python scripts/dprofile.py apply coding --ai claude,cursor
+python scripts/dprofile.py apply coding --ai all --force
+```
+
+When `dprofile` is on `PATH` (installed package), the same invocation is:
+
+```bash
 dprofile apply linux-expert --ai claude -g
 dprofile apply coding --ai claude,cursor
 dprofile apply coding --ai all --force
 ```
+
+Throughout this skill, **subcommands and flags are identical**; only the prefix differs: `python scripts/dprofile.py` from checkout root, or `dprofile` when installed. If the clone lives elsewhere, use an absolute path to `scripts/dprofile.py`.
 
 The Agent chooses local vs `-g` from target classification (`Target Classification` above).
 
@@ -117,7 +127,7 @@ The `apply` command always:
 1. Writes each adapter's output under `.dprofile/generated/<adapter>/...`.
 2. **Activates** verified adapters (writes or overwrites their native paths in the target directory). Unverified adapters stay generate-only and are listed under `skipped_activation` in state.
 
-If multiple adapters share one native activation path (e.g. both `codex` and `opencode` write `AGENTS.md`), **the first adapter listed in `--ai` wins** for that path: the file receives that adapter's rendered content. Later adapters keep their `.dprofile/generated/` output but do not overwrite the shared path again. The CLI prints this outcome; `skipped_duplicate_activation` in state lists `skipped`, `path`, and `active` (winner).
+If multiple adapters share one native activation path (e.g. both `codex` and `opencode` write `AGENTS.md`), **the first adapter listed in `--ai` wins** for that path: the file receives that adapter's rendered content. Later adapters keep their `.dprofile/generated/` output but do not overwrite the shared path again. The runner prints this outcome; `skipped_duplicate_activation` in state lists `skipped`, `path`, and `active` (winner).
 
 All generated or activated files should include a short managed marker when the target format allows comments:
 
@@ -127,33 +137,40 @@ All generated or activated files should include a short managed marker when the 
 
 If the format does not support comments, record ownership in `.dprofile/state.json`.
 
-## CLI
+## CLI and bundled script
 
-The bundled CLI performs deterministic file operations. It is intended for professional users and automation. It also exposes concise fallback guidance through `dprofile --help`, `dprofile apply --help`, and `dprofile guide`.
+The bundled entry point performs deterministic file operations and exposes `--help`, `apply --help`, and `guide`.
 
-The Agent remains responsible for target classification, adapter selection, and safety checks. Prefer this `SKILL.md` for Agent behavior, then use the CLI to execute the chosen operation.
+**Prefer the script when the CLI is not installed.** From the cloned repository root (or pass an absolute path to `scripts/dprofile.py` if the skill checkout is nested):
 
-Use CLI commands only after deciding whether the target is an Agent config target or a code project target.
+```bash
+python scripts/dprofile.py --help
+python scripts/dprofile.py apply coding --ai claude,cursor
+```
+
+Default profile library resolves to bundled `dprofile/profiles/` for that checkout; use `--profiles-dir <path>` if the Agent uses a relocated library.
+
+Use the same runner only after deciding whether the target is an Agent config target or a code project target.
 
 For Agent config targets (Global):
 
 ```bash
-dprofile list
-dprofile validate-profile architect
-dprofile apply architect --ai claude -g
-dprofile show -g --ai claude
-dprofile diff architect writer
+python scripts/dprofile.py list
+python scripts/dprofile.py validate-profile architect
+python scripts/dprofile.py apply architect --ai claude -g
+python scripts/dprofile.py show -g --ai claude
+python scripts/dprofile.py diff architect writer
 ```
 
-Use `list` knowing the active profile marker uses `.dprofile/state.json` in the **current directory** only (`dprofile list --help`). For global installs, prefer `show -g --ai <adapter>`.
+Use `list` knowing the active profile marker uses `.dprofile/state.json` in the **current directory** only (`python scripts/dprofile.py list --help`). For global installs, prefer `show -g --ai <adapter>`.
 
 For code project targets:
 
 ```bash
-dprofile apply architect --ai codex
-dprofile apply architect --ai claude,cursor,copilot
-dprofile apply architect --ai all
-dprofile apply architect --ai all --force
+python scripts/dprofile.py apply architect --ai codex
+python scripts/dprofile.py apply architect --ai claude,cursor,copilot
+python scripts/dprofile.py apply architect --ai all
+python scripts/dprofile.py apply architect --ai all --force
 ```
 
 ## Profile Semantics
