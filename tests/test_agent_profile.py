@@ -177,6 +177,290 @@ class AgentProfileTests(unittest.TestCase):
             self.assertIn("* writer - writer profile", result.stdout)
             self.assertIn("  architect - architect profile", result.stdout)
 
+    def test_apply_generates_project_adapter_outputs_without_activation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "claude,cursor,augment",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((target_dir / ".dprofile/generated/claude/CLAUDE.md").is_file())
+            self.assertTrue((target_dir / ".dprofile/generated/cursor/dprofile.mdc").is_file())
+            self.assertTrue((target_dir / ".dprofile/generated/augment/INSTRUCTIONS.md").is_file())
+            self.assertFalse((target_dir / "CLAUDE.md").exists())
+            self.assertFalse((target_dir / ".cursor").exists())
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["scope"], "project")
+            self.assertEqual(state["active_profile"], "coding")
+            self.assertEqual(state["activated_files"], [])
+
+    def test_apply_activate_writes_verified_adapter_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "claude,cursor",
+                "--activate",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Activated files:", result.stdout)
+            self.assertIn("dprofile-managed: true", (target_dir / "CLAUDE.md").read_text(encoding="utf-8"))
+            self.assertIn(
+                "implementation",
+                (target_dir / ".cursor/rules/dprofile.mdc").read_text(encoding="utf-8"),
+            )
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                sorted(Path(path).as_posix() for path in state["activated_files"]),
+                [".cursor/rules/dprofile.mdc", "CLAUDE.md"],
+            )
+
+    def test_apply_does_not_activate_unverified_adapter(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "augment",
+                "--activate",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Skipped activation for unverified adapters: augment", result.stdout)
+            self.assertTrue((target_dir / ".dprofile/generated/augment/INSTRUCTIONS.md").is_file())
+            self.assertFalse((target_dir / ".augment").exists())
+
+    def test_apply_refuses_to_overwrite_unmanaged_activated_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+            (target_dir / "CLAUDE.md").write_text("human notes\n", encoding="utf-8")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "claude",
+                "--activate",
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("refusing to overwrite unmanaged file", result.stderr)
+            self.assertEqual((target_dir / "CLAUDE.md").read_text(encoding="utf-8"), "human notes\n")
+
+    def test_init_ai_uses_install_style_adapter_activation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "init",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--ai",
+                "codex",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Initialized profile: coding", result.stdout)
+            self.assertTrue((target_dir / ".dprofile/generated/codex/AGENTS.md").is_file())
+            self.assertIn("implementation", (target_dir / "AGENTS.md").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["adapters"], ["codex"])
+            self.assertEqual(state["activated_files"], ["AGENTS.md"])
+
+    def test_init_ai_unverified_generates_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "init",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--ai",
+                "augment",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Skipped activation for unverified adapters: augment", result.stdout)
+            self.assertTrue((target_dir / ".dprofile/generated/augment/INSTRUCTIONS.md").is_file())
+            self.assertFalse((target_dir / ".augment").exists())
+
+    def test_cursor_adapter_uses_mdc_frontmatter_and_operating_protocol_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "cursor",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (target_dir / ".dprofile/generated/cursor/dprofile.mdc").read_text(encoding="utf-8")
+            self.assertTrue(content.startswith("---\n"))
+            self.assertIn("alwaysApply: true", content)
+            self.assertIn("## Operating Protocol", content)
+            self.assertNotIn("## User Context", content)
+            self.assertNotIn("## Agent Identity", content)
+
+    def test_copilot_adapter_uses_project_instructions_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "copilot",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (target_dir / ".dprofile/generated/copilot/copilot-instructions.md").read_text(encoding="utf-8")
+            self.assertIn("# GitHub Copilot Instructions", content)
+            self.assertIn("## Operating Protocol", content)
+            self.assertNotIn("## User Context", content)
+            self.assertNotIn("## Agent Identity", content)
+
+    def test_codex_adapter_limits_persona_to_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "codex",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (target_dir / ".dprofile/generated/codex/AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("# AGENTS.md", content)
+            self.assertIn("Active dprofile: coding", content)
+            self.assertIn("## Operating Protocol", content)
+            self.assertNotIn("## User Context", content)
+            self.assertNotIn("## Agent Identity", content)
+
+    def test_claude_adapter_includes_all_profile_layers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "claude",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (target_dir / ".dprofile/generated/claude/CLAUDE.md").read_text(encoding="utf-8")
+            self.assertIn("## User Context", content)
+            self.assertIn("## Agent Identity", content)
+            self.assertIn("## Operating Protocol", content)
+
+    def test_unverified_adapter_marks_manual_activation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
+                "--target-dir",
+                str(target_dir),
+                "--agents",
+                "augment",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            content = (target_dir / ".dprofile/generated/augment/INSTRUCTIONS.md").read_text(encoding="utf-8")
+            self.assertIn("Manual activation required", content)
+            self.assertIn("## User Context", content)
+            self.assertIn("## Agent Identity", content)
+            self.assertIn("## Operating Protocol", content)
+
 
 if __name__ == "__main__":
     unittest.main()

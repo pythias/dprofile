@@ -33,22 +33,40 @@ pip install dprofile
 
 ## 📖 使用模式
 
-### 1. Agent 驱动（自动化）
-Agent 利用 `dprofile` 自主切换身份或配置专门的协作节点。
+### 1. Agent 配置目录
+Agent 利用 `dprofile` 在 Agent 自己拥有的配置目录中切换身份，或配置专门的协作节点。
 
 ```bash
-# Agent 操作指令示例：“将我当前工作区的人格切换为 'architect'（架构师）。”
-dprofile switch architect --target-dir .
+# Agent 操作指令示例：“将我的 Codex 人格切换为 'architect'（架构师）。”
+dprofile switch architect --target-dir ~/.codex
 ```
 
-### 2. 手动 CLI（人工操作）
-开发者可以无缝管理不同项目中的 Agent 人格设定。
+### 2. 代码项目
+代码项目可能同时被多种 Agent 和 IDE 打开，因此 `dprofile` 将 `USER.md`、`SOUL.md`、`AGENTS.md` 视为 profile 源文件，而不是默认丢进仓库根目录的最终文件。
+
+对于项目目录，请遵循 `SKILL.md` 中的 adapter 工作流：先生成到 `.dprofile/generated/<adapter>/`，再按需激活具体 Agent 文件，例如 `CLAUDE.md`、`.cursor/rules/dprofile.mdc`、`.github/copilot-instructions.md`、`GEMINI.md` 或 `AGENTS.md`。
+
+不同 adapter 不会拿到完全相同的源层。Claude 和 Gemini 使用完整 profile 上下文；Cursor、Copilot、Codex、OpenCode 默认只使用操作协议层，避免把完整用户/人格上下文写进项目级规则。
+
+```bash
+# 为单个 AI 助手安装项目指令
+dprofile init coding --target-dir . --ai codex
+
+# 同时为多个助手安装
+dprofile init coding --target-dir . --ai claude,cursor,copilot
+
+# 只生成，不激活原生文件
+dprofile apply coding --target-dir . --agents all
+```
+
+### 3. 手动 CLI（人工操作）
+开发者可以直接管理 Agent 自己拥有的配置目录。
 
 ```bash
 # 列出所有可用人格
 dprofile list
 
-# 将本地项目的配置切换为 'coding'（编码）模式
+# 将专用 Agent 配置目录切换为 'coding'（编码）模式
 dprofile switch coding --target-dir ./my-project/.agent-config
 ```
 
@@ -94,7 +112,9 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 | 命令 | 描述 |
 | :--- | :--- |
 | `dprofile list` | 列出库中所有可用的人格套装。 |
-| `dprofile switch` | 将目标目录切换至指定人格。 |
+| `dprofile init` | 为一个或多个 AI 助手安装项目 adapter 文件。 |
+| `dprofile apply` | 生成项目 adapter 文件，并可选择激活已验证输出。 |
+| `dprofile switch` | 将 Agent 自有配置目录切换至指定人格。 |
 | `dprofile show` | 查看当前状态或指定人格的详细信息。 |
 | `dprofile diff` | 横向对比两个人格的差异。 |
 | `dprofile validate-target` | 验证目标目录是否安全，可进行人格管理。 |

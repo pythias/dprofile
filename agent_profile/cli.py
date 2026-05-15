@@ -18,6 +18,33 @@ REQUIRED_FILES = ("USER.md", "SOUL.md", "AGENTS.md", "manifest.yaml")
 PROFILE_FILES = ("USER.md", "SOUL.md", "AGENTS.md")
 STATE_FILE = ".agent-profile-state.json"
 BACKUP_DIR = ".agent-profile-backups"
+PROJECT_DIR = ".dprofile"
+PROJECT_STATE_FILE = "state.json"
+PROJECT_BACKUP_DIR = "backups"
+PROJECT_GENERATED_DIR = "generated"
+MANAGED_MARKER_PREFIX = "<!-- dprofile-managed: true;"
+ALL_ADAPTERS = (
+    "agent",
+    "augment",
+    "claude",
+    "codebuddy",
+    "codex",
+    "continue",
+    "copilot",
+    "cursor",
+    "droid",
+    "gemini",
+    "hermes",
+    "kilocode",
+    "kiro",
+    "openclaw",
+    "opencode",
+    "qoder",
+    "roocode",
+    "trae",
+    "warp",
+    "windsurf",
+)
 
 
 @dataclass(frozen=True)
@@ -28,8 +55,35 @@ class Profile:
     tags: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class Adapter:
+    name: str
+    generated_path: Path
+    activated_path: Path | None
+    verified: bool
+    format: str
+    layers: tuple[str, ...]
+
+
 class ProfileError(RuntimeError):
     pass
+
+
+VERIFIED_ADAPTERS: dict[str, Adapter] = {
+    "claude": Adapter("claude", Path("claude/CLAUDE.md"), Path("CLAUDE.md"), True, "markdown-full", ("user", "soul", "agents")),
+    "cursor": Adapter("cursor", Path("cursor/dprofile.mdc"), Path(".cursor/rules/dprofile.mdc"), True, "cursor-mdc", ("agents",)),
+    "copilot": Adapter(
+        "copilot",
+        Path("copilot/copilot-instructions.md"),
+        Path(".github/copilot-instructions.md"),
+        True,
+        "copilot",
+        ("agents",),
+    ),
+    "codex": Adapter("codex", Path("codex/AGENTS.md"), Path("AGENTS.md"), True, "agents-md", ("agents",)),
+    "gemini": Adapter("gemini", Path("gemini/GEMINI.md"), Path("GEMINI.md"), True, "markdown-full", ("user", "soul", "agents")),
+    "opencode": Adapter("opencode", Path("opencode/AGENTS.md"), Path("AGENTS.md"), True, "agents-md", ("agents",)),
+}
 
 
 def package_root() -> Path:
@@ -55,6 +109,34 @@ def resolve_target_dir(raw_target_dir: str | None) -> Path:
     return Path(raw_target_dir).expanduser().resolve()
 
 
+def project_state_path(target_dir: Path) -> Path:
+    return target_dir / PROJECT_DIR / PROJECT_STATE_FILE
+
+
+def adapter_for(name: str) -> Adapter:
+    if name in VERIFIED_ADAPTERS:
+        return VERIFIED_ADAPTERS[name]
+    if name in ALL_ADAPTERS:
+        return Adapter(name, Path(name) / "INSTRUCTIONS.md", None, False, "manual", ("user", "soul", "agents"))
+    raise ProfileError(f"unknown adapter: {name}")
+
+
+def parse_adapters(raw_agents: str) -> list[str]:
+    names = [item.strip().lower() for item in raw_agents.split(",") if item.strip()]
+    if not names:
+        raise ProfileError("--agents must name at least one adapter")
+    if "all" in names:
+        return list(ALL_ADAPTERS)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for name in names:
+        adapter_for(name)
+        if name not in seen:
+            ordered.append(name)
+            seen.add(name)
+    return ordered
+
+
 def read_manifest_value(manifest: Path, key: str) -> str:
     prefix = f"{key}:"
     for line in manifest.read_text(encoding="utf-8").splitlines():
@@ -78,6 +160,102 @@ def read_manifest_tags(manifest: Path) -> tuple[str, ...]:
         if in_tags and stripped and not stripped.startswith("- "):
             break
     return tuple(tags)
+
+
+def read_profile_text(profile: Profile, filename: str) -> str:
+    return (profile.path / filename).read_text(encoding="utf-8").strip()
+
+
+def render_marker(profile: Profile, adapter: Adapter) -> str:
+    return f"<!-- dprofile-managed: true; profile={profile.name}; adapter={adapter.name} -->"
+
+
+def render_profile_summary(profile: Profile) -> list[str]:
+    description = profile.description or "No description."
+    tags = ", ".join(profile.tags) if profile.tags else "none"
+    return [
+        "## Profile",
+        "",
+        f"- Name: {profile.name}",
+        f"- Description: {description}",
+        f"- Tags: {tags}",
+        "",
+    ]
+
+
+def render_layers(profile: Profile, layers: tuple[str, ...]) -> list[str]:
+    sections: list[str] = []
+    if "user" in layers:
+        sections.extend(["## User Context", "", read_profile_text(profile, "USER.md"), ""])
+    if "soul" in layers:
+        sections.extend(["## Agent Identity", "", read_profile_text(profile, "SOUL.md"), ""])
+    if "agents" in layers:
+        sections.extend(["## Operating Protocol", "", read_profile_text(profile, "AGENTS.md"), ""])
+    return sections
+
+
+def render_adapter_file(profile: Profile, adapter: Adapter) -> str:
+    marker = render_marker(profile, adapter)
+    if adapter.format == "cursor-mdc":
+        lines = [
+            "---",
+            f"description: dprofile {profile.name} operating protocol",
+            "globs: **/*",
+            "alwaysApply: true",
+            "---",
+            marker,
+            f"# Cursor Rules for {profile.name}",
+            "",
+        ]
+        lines.extend(render_layers(profile, adapter.layers))
+        return "\n".join(lines)
+
+    if adapter.format == "copilot":
+        lines = [
+            marker,
+            "# GitHub Copilot Instructions",
+            "",
+            f"Active dprofile: {profile.name}",
+            "",
+        ]
+        lines.extend(render_layers(profile, adapter.layers))
+        return "\n".join(lines)
+
+    if adapter.format == "agents-md":
+        lines = [
+            marker,
+            "# AGENTS.md",
+            "",
+            f"Active dprofile: {profile.name}",
+            "",
+            "This file is generated for AGENTS.md-compatible coding agents.",
+            "",
+        ]
+        lines.extend(render_layers(profile, adapter.layers))
+        return "\n".join(lines)
+
+    if adapter.format == "manual":
+        lines = [
+            marker,
+            f"# dprofile {profile.name} for {adapter.name}",
+            "",
+            "Manual activation required.",
+            "",
+        ]
+        lines.extend(render_profile_summary(profile))
+        lines.extend(render_layers(profile, adapter.layers))
+        lines.extend(["## Adapter Notes", "", f"No verified native path is known for `{adapter.name}`.", ""])
+        return "\n".join(lines)
+
+    lines = [
+        marker,
+        f"# dprofile {profile.name} for {adapter.name}",
+        "",
+    ]
+    lines.extend(render_profile_summary(profile))
+    lines.extend(render_layers(profile, adapter.layers))
+    lines.extend(["## Adapter Notes", "", f"This file was generated for the `{adapter.name}` adapter.", ""])
+    return "\n".join(lines)
 
 
 def load_profile(profile_root: Path, name: str) -> Profile:
@@ -152,6 +330,20 @@ def validate_target(target_dir: Path) -> list[str]:
     return errors
 
 
+def validate_project_target(target_dir: Path) -> list[str]:
+    errors: list[str] = []
+    if not target_dir.exists():
+        errors.append(f"target directory does not exist: {target_dir}")
+        return errors
+    if not target_dir.is_dir():
+        errors.append(f"target path is not a directory: {target_dir}")
+        return errors
+    dprofile_dir = target_dir / PROJECT_DIR
+    if dprofile_dir.exists() and not dprofile_dir.is_dir():
+        errors.append(f"refusing to replace file: {dprofile_dir}")
+    return errors
+
+
 def backup_target(target_dir: Path) -> Path | None:
     existing = [target_dir / filename for filename in PROFILE_FILES if (target_dir / filename).exists()]
     state = state_path(target_dir)
@@ -185,6 +377,115 @@ def replace_target_file(source: Path, target: Path, mode: str) -> None:
         return
     relative_source = os.path.relpath(source, start=target.parent)
     target.symlink_to(relative_source)
+
+
+def relative_to_target(target_dir: Path, path: Path) -> str:
+    return path.relative_to(target_dir).as_posix()
+
+
+def is_managed_file(path: Path) -> bool:
+    if not path.exists() or not path.is_file():
+        return False
+    first_line = path.read_text(encoding="utf-8").splitlines()[:1]
+    return bool(first_line and first_line[0].startswith(MANAGED_MARKER_PREFIX))
+
+
+def backup_project_file(target_dir: Path, path: Path) -> Path:
+    relative = path.relative_to(target_dir)
+    backup = target_dir / PROJECT_DIR / PROJECT_BACKUP_DIR / datetime.now().strftime("%Y%m%d-%H%M%S") / relative
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(path, backup)
+    return backup
+
+
+def write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def write_activated_file(target_dir: Path, path: Path, content: str, force: bool) -> Path | None:
+    backup = None
+    if path.exists():
+        if path.is_dir() and not path.is_symlink():
+            raise ProfileError(f"refusing to replace directory: {path}")
+        if not force and not is_managed_file(path):
+            raise ProfileError(f"refusing to overwrite unmanaged file: {path}")
+        backup = backup_project_file(target_dir, path)
+    write_text(path, content)
+    return backup
+
+
+def write_project_state(
+    target_dir: Path,
+    profile: Profile,
+    profiles_dir: Path,
+    adapters: list[str],
+    generated: list[Path],
+    activated: list[Path],
+    skipped_activation: list[str],
+    backups: list[Path],
+) -> None:
+    state = {
+        "scope": "project",
+        "active_profile": profile.name,
+        "source_profile_path": str(profile.path),
+        "profiles_dir": str(profiles_dir),
+        "target_dir": str(target_dir),
+        "applied_at": datetime.now(timezone.utc).isoformat(),
+        "adapters": adapters,
+        "generated_files": [relative_to_target(target_dir, path) for path in generated],
+        "activated_files": [relative_to_target(target_dir, path) for path in activated],
+        "skipped_activation": skipped_activation,
+        "backup_paths": [relative_to_target(target_dir, path) for path in backups],
+    }
+    path = project_state_path(target_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def apply_project_profile(
+    profiles_dir: Path,
+    target_dir: Path,
+    name: str,
+    adapters: list[str],
+    activate: bool,
+    force: bool,
+) -> tuple[list[Path], list[Path], list[str], list[Path]]:
+    errors = validate_profile(profiles_dir, name)
+    if errors:
+        raise ProfileError("; ".join(errors))
+    target_errors = validate_project_target(target_dir)
+    if target_errors:
+        raise ProfileError("; ".join(target_errors))
+
+    profile = load_profile(profiles_dir, name)
+    generated: list[Path] = []
+    activated: list[Path] = []
+    skipped_activation: list[str] = []
+    backups: list[Path] = []
+
+    for adapter_name in adapters:
+        adapter = adapter_for(adapter_name)
+        content = render_adapter_file(profile, adapter)
+        generated_path = target_dir / PROJECT_DIR / PROJECT_GENERATED_DIR / adapter.generated_path
+        write_text(generated_path, content)
+        generated.append(generated_path)
+
+        if not activate:
+            continue
+        if not adapter.verified or adapter.activated_path is None:
+            skipped_activation.append(adapter.name)
+            continue
+        activated_path = target_dir / adapter.activated_path
+        if activated_path in activated:
+            continue
+        backup = write_activated_file(target_dir, activated_path, content, force)
+        if backup:
+            backups.append(backup)
+        activated.append(activated_path)
+
+    write_project_state(target_dir, profile, profiles_dir, adapters, generated, activated, skipped_activation, backups)
+    return generated, activated, skipped_activation, backups
 
 
 def write_state(
@@ -314,6 +615,81 @@ def command_switch(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_apply(args: argparse.Namespace) -> int:
+    profiles_dir = resolve_profiles_dir(args.profiles_dir)
+    try:
+        target_dir = resolve_target_dir(args.target_dir)
+        adapters = parse_adapters(args.agents)
+        generated, activated, skipped_activation, backups = apply_project_profile(
+            profiles_dir,
+            target_dir,
+            args.profile,
+            adapters,
+            args.activate,
+            args.force,
+        )
+    except ProfileError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Applied profile: {args.profile}")
+    print(f"Target directory: {target_dir}")
+    print(f"Adapters: {', '.join(adapters)}")
+    print(f"Activation: {'enabled' if args.activate else 'disabled'}")
+    print("Generated files:")
+    for path in generated:
+        print(f"  - {relative_to_target(target_dir, path)}")
+    if activated:
+        print("Activated files:")
+        for path in activated:
+            print(f"  - {relative_to_target(target_dir, path)}")
+    if skipped_activation:
+        print(f"Skipped activation for unverified adapters: {', '.join(skipped_activation)}")
+    if backups:
+        print("Backups:")
+        for path in backups:
+            print(f"  - {relative_to_target(target_dir, path)}")
+    print(f"State: {relative_to_target(target_dir, project_state_path(target_dir))}")
+    return 0
+
+
+def command_init(args: argparse.Namespace) -> int:
+    profiles_dir = resolve_profiles_dir(args.profiles_dir)
+    try:
+        target_dir = resolve_target_dir(args.target_dir)
+        adapters = parse_adapters(args.ai)
+        generated, activated, skipped_activation, backups = apply_project_profile(
+            profiles_dir,
+            target_dir,
+            args.profile,
+            adapters,
+            True,
+            args.force,
+        )
+    except ProfileError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Initialized profile: {args.profile}")
+    print(f"Target directory: {target_dir}")
+    print(f"AI adapters: {', '.join(adapters)}")
+    print("Generated files:")
+    for path in generated:
+        print(f"  - {relative_to_target(target_dir, path)}")
+    if activated:
+        print("Activated files:")
+        for path in activated:
+            print(f"  - {relative_to_target(target_dir, path)}")
+    if skipped_activation:
+        print(f"Skipped activation for unverified adapters: {', '.join(skipped_activation)}")
+    if backups:
+        print("Backups:")
+        for path in backups:
+            print(f"  - {relative_to_target(target_dir, path)}")
+    print(f"State: {relative_to_target(target_dir, project_state_path(target_dir))}")
+    return 0
+
+
 def command_show(args: argparse.Namespace) -> int:
     profiles_dir = resolve_profiles_dir(args.profiles_dir)
     if args.profile:
@@ -403,6 +779,23 @@ def build_parser() -> argparse.ArgumentParser:
     switch_parser.add_argument("--target-dir", required=True, help="Agent configuration directory to update")
     switch_parser.add_argument("--mode", choices=("symlink", "copy"), default="symlink")
     switch_parser.set_defaults(func=command_switch)
+
+    apply_parser = subparsers.add_parser("apply", help="apply a profile to a code project through adapters")
+    add_common_profile_arg(apply_parser)
+    apply_parser.add_argument("profile")
+    apply_parser.add_argument("--target-dir", required=True, help="code project directory to update")
+    apply_parser.add_argument("--agents", default="all", help="comma-separated adapter names, or all")
+    apply_parser.add_argument("--activate", action="store_true", help="write verified adapter outputs to native paths")
+    apply_parser.add_argument("--force", action="store_true", help="overwrite unmanaged activated files after backup")
+    apply_parser.set_defaults(func=command_apply)
+
+    init_parser = subparsers.add_parser("init", help="install project adapter files for AI assistants")
+    add_common_profile_arg(init_parser)
+    init_parser.add_argument("profile")
+    init_parser.add_argument("--target-dir", required=True, help="code project directory to initialize")
+    init_parser.add_argument("--ai", default="all", help="comma-separated AI adapter names, or all")
+    init_parser.add_argument("--force", action="store_true", help="overwrite unmanaged activated files after backup")
+    init_parser.set_defaults(func=command_init)
 
     show_parser = subparsers.add_parser("show", help="show target state or a named profile")
     add_common_profile_arg(show_parser)

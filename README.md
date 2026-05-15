@@ -33,22 +33,40 @@ pip install dprofile
 
 ## 📖 Usage Patterns
 
-### 1. Agent-Driven (Automation)
-Agents use `dprofile` to autonomously switch their own identity or configure specialized workers.
+### 1. Agent Configs
+Agents use `dprofile` to switch their own identity or configure specialized worker profiles in Agent-owned config directories.
 
 ```bash
-# Agent instruction: "Switch my persona to 'architect' in the current workspace."
-dprofile switch architect --target-dir .
+# Agent instruction: "Switch my Codex persona to 'architect'."
+dprofile switch architect --target-dir ~/.codex
 ```
 
-### 2. Manual CLI (Human)
-Developers can manage agent personas across projects with zero friction.
+### 2. Code Projects
+Code projects may be opened by many Agents and IDEs, so `dprofile` treats `USER.md`, `SOUL.md`, and `AGENTS.md` as profile source files rather than files to drop into a repository root.
+
+For project directories, use the adapter workflow described in `SKILL.md`: generate under `.dprofile/generated/<adapter>/` first, then activate only the Agent-specific files you want, such as `CLAUDE.md`, `.cursor/rules/dprofile.mdc`, `.github/copilot-instructions.md`, `GEMINI.md`, or `AGENTS.md`.
+
+Adapters do not all receive the same source layers. Claude and Gemini get the full profile context, while Cursor, Copilot, Codex, and OpenCode default to the operating protocol layer so project instructions stay focused.
+
+```bash
+# Install project instructions for one AI assistant
+dprofile init coding --target-dir . --ai codex
+
+# Install for several assistants
+dprofile init coding --target-dir . --ai claude,cursor,copilot
+
+# Generate only, without activating native files
+dprofile apply coding --target-dir . --agents all
+```
+
+### 3. Manual CLI (Human)
+Developers can manage Agent-owned config directories directly.
 
 ```bash
 # List all available personas
 dprofile list
 
-# Switch a local project config to 'coding' mode
+# Switch a dedicated Agent config directory to 'coding' mode
 dprofile switch coding --target-dir ./my-project/.agent-config
 ```
 
@@ -94,7 +112,9 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 | Command | Description |
 | :--- | :--- |
 | `dprofile list` | List all available profiles in the library. |
-| `dprofile switch` | Switch target directory to a specific profile. |
+| `dprofile init` | Install project adapter files for one or more AI assistants. |
+| `dprofile apply` | Generate project adapter files, optionally activating verified outputs. |
+| `dprofile switch` | Switch an Agent-owned config directory to a specific profile. |
 | `dprofile show` | Inspect current state or a specific profile. |
 | `dprofile diff` | Compare two profiles side-by-side. |
 | `dprofile validate-target` | Ensure a directory is safe for profile management. |
