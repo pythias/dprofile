@@ -1,6 +1,6 @@
 ---
 name: dprofile
-description: Use this skill whenever the user wants an Agent to switch, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "switch to architect", "use ops profile", "切到写作人格", "dprofile switch", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must classify the target as either an Agent-owned configuration directory or a code project before changing files.
+description: Use this skill whenever the user wants an Agent to apply, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "apply architect profile", "use ops profile", "切到写作人格", "dprofile apply", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must classify the target as either an Agent-owned configuration directory or a code project before changing files.
 ---
 
 # dprofile
@@ -29,112 +29,25 @@ Before changing files, classify the target:
 
 Rules:
 
-1. If the user explicitly provides a target directory and target type, use it.
-2. If the user asks to switch "this Agent", "my Agent", or a named Agent's own profile, treat the target as an Agent config target.
-3. If the user says "this repo", "this project", "workspace", or points at source code, treat the target as a code project target.
-4. If a system-level Agent directory is involved, require the user to provide or confirm the exact path.
-5. If the target type is ambiguous, ask one concise clarifying question before changing files.
+1. If the user asks to configure "this Agent", "my Agent", or a named Agent's own profile, treat the target as a global Agent target. Use `apply -g`.
+2. If the user says "this repo", "this project", "workspace", or points at source code, treat the target as a local project target. Use `apply`.
+3. If the target is ambiguous, ask one concise clarifying question before changing files.
 
-## Agent Config Workflow
+## Unified Workflow: `apply`
 
-For an Agent config target, follow that Agent's native configuration convention.
-
-If the target Agent natively uses dprofile's three-layer model, write:
-
-```text
-target-agent-config/
-  USER.md
-  SOUL.md
-  AGENTS.md
-  .dprofile-state.json
-  .dprofile-backups/
-```
-
-If the target Agent has a different native file, generate that file instead. Examples:
-
-- Claude Code: `CLAUDE.md`
-- Gemini CLI: `GEMINI.md`
-- Codex and AGENTS.md-compatible agents: `AGENTS.md`
-
-Workflow:
-
-1. Validate that the selected profile exists and contains `USER.md`, `SOUL.md`, `AGENTS.md`, and `manifest.yaml`.
-2. Validate that the target can safely receive the Agent-native files.
-3. Back up existing managed target files before replacing them.
-4. Write only files that belong to that Agent's configuration convention.
-5. Write state metadata next to the Agent config or in the Agent's state directory.
-6. Report the active profile, target directory, Agent type, changed files, and backup path.
-7. Do not modify unrelated files.
-
-## Code Project Workflow
-
-For a code project target, do not write `USER.md`, `SOUL.md`, or `AGENTS.md` directly into the repository root by default.
-
-Code projects may be used by many tools, including:
-
-```text
-agent
-augment
-claude
-codebuddy
-codex
-continue
-copilot
-cursor
-droid
-gemini
-hermes
-kilocode
-kiro
-openclaw
-opencode
-qoder
-roocode
-trae
-warp
-windsurf
-```
-
-For project targets, dprofile acts as a profile compiler:
+The `apply` command handles Agent configs and code projects: it writes `.dprofile/generated/<adapter>/...` for every requested adapter, then activates verified adapters onto their native paths (see Activation Policy for shared-path rules).
 
 1. Validate the profile.
-2. Create or update only the dprofile management area by default.
-3. Generate adapter outputs under `.dprofile/generated/<adapter>/`.
-4. Activate adapter outputs into real IDE or Agent paths only when the user explicitly asks for activation, or when using the install-style `init --ai` command.
-5. Never overwrite a non-managed project file without backup and explicit confirmation.
+2. Select adapters via `--ai`.
+3. **Local** (default): current directory. **Global** (`-g`): standard homes such as `~/.claude`.
 
-Default project layout:
-
-```text
-project/
-  .dprofile/
-    state.json
-    backups/
-    generated/
-      claude/
-      codex/
-      copilot/
-      cursor/
-      gemini/
-      opencode/
-      unknown-agent/
+```bash
+dprofile apply linux-expert --ai claude -g
+dprofile apply coding --ai claude,cursor
+dprofile apply coding --ai all --force
 ```
 
-Activation may create native files such as:
-
-```text
-project/
-  CLAUDE.md
-  GEMINI.md
-  AGENTS.md
-  .cursor/
-    rules/
-      dprofile.mdc
-  .github/
-    copilot-instructions.md
-```
-
-Only create these activated files when the adapter path is verified and the user requested activation.
+The Agent chooses local vs `-g` from target classification (`Target Classification` above).
 
 ## Adapter Registry
 
@@ -199,21 +112,12 @@ Use these content rules:
 
 ## Activation Policy
 
-Project activation is opt-in for `apply` and default-on for `init --ai`.
+The `apply` command always:
 
-Without activation:
+1. Writes each adapter's output under `.dprofile/generated/<adapter>/...`.
+2. **Activates** verified adapters (writes or overwrites their native paths in the target directory). Unverified adapters stay generate-only and are listed under `skipped_activation` in state.
 
-- Write `.dprofile/state.json`.
-- Write `.dprofile/generated/<adapter>/...`.
-- Do not write root-level `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or any IDE directory.
-
-With activation or `init --ai`:
-
-- Activate only requested adapters.
-- Prefer tool-specific directories over root-level files when the tool supports them.
-- For root-level files, explain the pollution tradeoff and activate only when the user requested that adapter.
-- Preserve existing human-authored files unless the user explicitly approves merging or replacement.
-- If multiple adapters share one activated path, activate that path once and still generate each adapter's `.dprofile/generated/` output.
+If multiple adapters share one native activation path (e.g. both `codex` and `opencode` write `AGENTS.md`), **the first adapter listed in `--ai` wins** for that path: the file receives that adapter's rendered content. Later adapters keep their `.dprofile/generated/` output but do not overwrite the shared path again. The CLI prints this outcome; `skipped_duplicate_activation` in state lists `skipped`, `path`, and `active` (winner).
 
 All generated or activated files should include a short managed marker when the target format allows comments:
 
@@ -225,42 +129,32 @@ If the format does not support comments, record ownership in `.dprofile/state.js
 
 ## CLI
 
-The bundled CLI performs deterministic file operations. It is intended for professional users and automation. It also exposes concise fallback guidance through `dprofile --help`, `dprofile init --help`, `dprofile apply --help`, and `dprofile guide`.
+The bundled CLI performs deterministic file operations. It is intended for professional users and automation. It also exposes concise fallback guidance through `dprofile --help`, `dprofile apply --help`, and `dprofile guide`.
 
 The Agent remains responsible for target classification, adapter selection, and safety checks. Prefer this `SKILL.md` for Agent behavior, then use the CLI to execute the chosen operation.
 
 Use CLI commands only after deciding whether the target is an Agent config target or a code project target.
 
-For Agent config targets:
+For Agent config targets (Global):
 
 ```bash
 dprofile list
 dprofile validate-profile architect
-dprofile switch architect --target-dir /path/to/agent-config
-dprofile switch architect --target-dir /path/to/agent-config --mode copy
-dprofile show --target-dir /path/to/agent-config
+dprofile apply architect --ai claude -g
+dprofile show -g --ai claude
 dprofile diff architect writer
 ```
+
+Use `list` knowing the active profile marker uses `.dprofile/state.json` in the **current directory** only (`dprofile list --help`). For global installs, prefer `show -g --ai <adapter>`.
 
 For code project targets:
 
 ```bash
-dprofile init architect --target-dir /path/to/project --ai codex
-dprofile init architect --target-dir /path/to/project --ai claude,cursor,copilot
-dprofile init architect --target-dir /path/to/project --ai all
-dprofile init architect --target-dir /path/to/project --ai all --force
+dprofile apply architect --ai codex
+dprofile apply architect --ai claude,cursor,copilot
+dprofile apply architect --ai all
+dprofile apply architect --ai all --force
 ```
-
-`init --ai` is the install-style workflow. It always writes `.dprofile/generated/<adapter>/` and activates verified adapters into their native project paths.
-
-Use `apply` when you want to generate without activation first:
-
-```bash
-dprofile apply architect --target-dir /path/to/project --agents all
-dprofile apply architect --target-dir /path/to/project --agents claude,cursor --activate
-```
-
-Use `--profiles-dir /path/to/profiles` when the profile library is not this skill's bundled `profiles/` directory.
 
 ## Profile Semantics
 
@@ -282,10 +176,9 @@ Avoid mixing role/personality rules into project-only `AGENTS.md` files unless t
 
 ## Safety
 
-- Never guess a system-level Agent directory.
-- Never use `switch` on a code project root unless the user explicitly wants raw three-file output there.
-- Prefer `.dprofile/generated/` for code projects until activation is requested.
-- Back up existing target files before switching, activating, merging, or replacing.
+- Never guess a system-level Agent directory. Use `-g` for standard paths.
+- Existing unmanaged activated files are skipped unless `--force` (after backup for managed overwrites).
+- Back up existing target files before replacing managed or forced overwrites.
 - Refuse to replace directories named `USER.md`, `SOUL.md`, `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`.
 - Never remove or rewrite unrelated files.
-- If a requested profile, target directory, or adapter is invalid, stop and report the validation error.
+- If a requested profile or adapter is invalid, stop and report the validation error.

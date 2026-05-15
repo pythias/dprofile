@@ -1,9 +1,9 @@
 # 🎭 dprofile
 
-[![PyPI version](https://img.shields.io/pypi/v/dprofile.svg)](https://pypi.org/project/dprofile/)
-[![Python versions](https://img.shields.io/pypi/pyversions/dprofile.svg)](https://pypi.org/project/dprofile/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/pythias/dprofile/actions/workflows/ci.yml/badge.svg)](https://github.com/pythias/dprofile/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/dprofile.svg?maxAge=0)](https://pypi.org/project/dprofile/)
+[![Python versions](https://img.shields.io/pypi/pyversions/dprofile.svg?maxAge=0)](https://pypi.org/project/dprofile/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?maxAge=0)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/pythias/dprofile/actions/workflows/ci.yml/badge.svg?maxAge=0)](https://github.com/pythias/dprofile/actions/workflows/ci.yml)
 
 **Instant Persona Switching for AI Agents.**
 
@@ -18,12 +18,12 @@
 ## ✨ Key Features
 
 - **🤖 Agent-Native**: Designed to be called by Agents to self-evolve or switch sub-agent configurations.
-- **🛡️ Safety First**: Automatic backups, state tracking, and validation of target directories.
+- **🛡️ Safety First**: Automatic backups, `.dprofile/` state, and validation of target directories.
 - **🏗️ The Three-Layer Model**:
     - `USER.md`: Who you are helping (Background & Preferences).
     - `SOUL.md`: Who you are (Identity & Values).
     - `AGENTS.md`: How you work (Tools & Protocols).
-- **🔗 Hybrid Modes**: Switch via **Symlinks** (for live updates) or **Copy** (for portable exports).
+- **📄 Adapter activation**: Verified adapters get a rendered copy at each tool's native paths.
 
 ## 🚀 Quick Start
 
@@ -36,56 +36,42 @@ Install the dprofile skill from github.com/pythias/dprofile.
 After the skill is installed, ask the Agent to use a profile:
 
 ```text
-Use the coding profile for this project with Codex.
+Use the coding profile for this project with Claude.
 ```
 
-The Agent should read `SKILL.md`, classify the target, and choose the correct operation. For code projects, that usually means generating adapter files through `dprofile init`.
+The Agent should read `SKILL.md`, classify the target, and choose the correct operation. For code projects, that usually means applying adapter files through `dprofile apply`.
 
 The CLI is optional but recommended for deterministic execution:
 
 ```bash
-pip install dprofile
+pip install dprofile -i https://pypi.org/simple
 ```
 
 ---
 
 ## 📖 Usage Patterns
 
-### 1. Agent Configs
-Agents use `dprofile` to switch their own identity or configure specialized worker profiles in Agent-owned config directories.
+### 1. Global Agent Configs
+Agents use `dprofile` to configure their standard global identities.
 
 ```bash
-# Agent instruction: "Switch my Codex persona to 'architect'."
-dprofile switch architect --target-dir ~/.codex
+# Agent instruction: "Configure my global Claude persona to 'architect'."
+dprofile apply architect --ai claude -g
 ```
 
 ### 2. Code Projects
-Code projects may be opened by many Agents and IDEs, so `dprofile` treats `USER.md`, `SOUL.md`, and `AGENTS.md` as profile source files rather than files to drop into a repository root.
+Code projects may be opened by many Agents and IDEs, so `dprofile` targets the current project by default.
 
-For project directories, use the adapter workflow described in `SKILL.md`: generate under `.dprofile/generated/<adapter>/` first, then activate only the Agent-specific files you want, such as `CLAUDE.md`, `.cursor/rules/dprofile.mdc`, `.github/copilot-instructions.md`, `GEMINI.md`, or `AGENTS.md`.
+It generates and activates Agent-specific files such as `CLAUDE.md`, `.cursor/rules/dprofile.mdc`, `.github/copilot-instructions.md`, `GEMINI.md`, or `AGENTS.md`.
 
 Adapters do not all receive the same source layers. Claude and Gemini get the full profile context, while Cursor, Copilot, Codex, and OpenCode default to the operating protocol layer so project instructions stay focused.
 
 ```bash
-# Install project instructions for one AI assistant
-dprofile init coding --target-dir . --ai codex
+# Apply profile to the current project for Claude and Cursor
+dprofile apply coding --ai claude,cursor
 
-# Install for several assistants
-dprofile init coding --target-dir . --ai claude,cursor,copilot
-
-# Generate only, without activating native files
-dprofile apply coding --target-dir . --agents all
-```
-
-### 3. Optional CLI (Human or Automation)
-Developers can manage Agent-owned config directories directly.
-
-```bash
-# List all available personas
-dprofile list
-
-# Switch a dedicated Agent config directory to 'coding' mode
-dprofile switch coding --target-dir ./my-project/.agent-config
+# Apply to all verified adapters in the current project
+dprofile apply coding --ai all
 ```
 
 ---
@@ -102,6 +88,7 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 - `ops`: SRE, production, and infrastructure.
 - `ai-infra`: GPUs, vLLM, MCP, and inference optimization.
 - `ml-researcher`: Model experiments and benchmarks.
+- `linux-expert`: Kernel, syscalls, and low-level system mastery.
 
 ### 📝 Content & Design
 - `writer`: Long-form content and editing.
@@ -129,14 +116,12 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 
 | Command | Description |
 | :--- | :--- |
-| `dprofile guide` | Explain when to use `switch`, `init`, and `apply`. |
-| `dprofile list` | List all available profiles in the library. |
-| `dprofile init` | Install project adapter files for one or more AI assistants. |
-| `dprofile apply` | Generate project adapter files, optionally activating verified outputs. |
-| `dprofile switch` | Switch an Agent-owned config directory to a specific profile. |
+| `dprofile list` | Lists profiles in the library. `*` reflects `.dprofile/state.json` in the **current directory** only; use `show -g` for global Agent homes. |
+| `dprofile apply` | Apply a profile to the project or global Agent config. |
 | `dprofile show` | Inspect current state or a specific profile. |
 | `dprofile diff` | Compare two profiles side-by-side. |
-| `dprofile validate-target` | Ensure a directory is safe for profile management. |
+| `dprofile guide` | Detailed usage protocol and adapter info. |
+| `dprofile validate-profile` | Validate the structure of a profile. |
 
 ---
 
@@ -149,11 +134,14 @@ python3 -m unittest discover -s tests -v
 
 ### Publishing a Release
 1. Update version in `pyproject.toml` and `dprofile/__init__.py`.
-2. Create and push a tag:
-   ```bash
-   git tag v0.1.1
-   git push origin main && git push origin v0.1.1
-   ```
+2. Tag and push (use the **same version** as in `pyproject.toml`):
+
+```bash
+git tag vX.Y.Z
+git push origin main && git push origin vX.Y.Z
+```
+
+Replace `X.Y.Z` with the version you set in `pyproject.toml` (for example `0.4.0`, tag as `v0.4.0`).
 
 ## 📄 License
 

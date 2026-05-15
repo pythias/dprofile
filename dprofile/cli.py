@@ -18,7 +18,6 @@ from textwrap import dedent
 REQUIRED_FILES = ("USER.md", "SOUL.md", "AGENTS.md", "manifest.yaml")
 PROFILE_FILES = ("USER.md", "SOUL.md", "AGENTS.md")
 STATE_FILE = ".dprofile-state.json"
-BACKUP_DIR = ".dprofile-backups"
 PROJECT_DIR = ".dprofile"
 PROJECT_STATE_FILE = "state.json"
 PROJECT_BACKUP_DIR = "backups"
@@ -76,22 +75,11 @@ Primary workflow lives in SKILL.md:
   safety, and project-vs-Agent-directory decisions. The CLI is the deterministic
   executor and fallback guide.
 
-Agent config targets:
-  Use switch for Agent-owned config directories. This writes the raw dprofile
-  three-layer source files: USER.md, SOUL.md, and AGENTS.md.
+Apply a profile to the current project:
+  dprofile apply coding --ai claude,cursor
 
-Code project targets:
-  Use init for code projects. It installs adapter-native files for AI tools and
-  keeps dprofile state under .dprofile/.
-
-  Use apply when you want to generate adapter outputs first without activating
-  native files.
-
-Examples:
-  dprofile switch coding --target-dir ~/.codex
-  dprofile init coding --target-dir . --ai codex
-  dprofile init coding --target-dir . --ai claude,cursor,copilot
-  dprofile apply coding --target-dir . --agents all
+Apply a profile to standard global Agent config:
+  dprofile apply coding --ai claude -g
 
 Run `dprofile guide` for the full usage protocol.
 """
@@ -103,19 +91,33 @@ Adapter compatibility:
   Cursor/Copilot/Codex/OpenCode receive operating protocol focused output.
   Unverified adapters generate only .dprofile/generated/<adapter>/INSTRUCTIONS.md.
 
-Verified project adapters:
-  claude   -> CLAUDE.md
-  cursor   -> .cursor/rules/dprofile.mdc
-  copilot  -> .github/copilot-instructions.md
-  codex    -> AGENTS.md
-  gemini   -> GEMINI.md
-  opencode -> AGENTS.md
+Verified adapters:
+  claude    -> CLAUDE.md
+  cursor    -> .cursor/rules/dprofile.mdc
+  copilot   -> .github/copilot-instructions.md
+  codex     -> AGENTS.md
+  gemini    -> GEMINI.md
+  opencode  -> AGENTS.md
 """
 
 
 VERIFIED_ADAPTERS: dict[str, Adapter] = {
-    "claude": Adapter("claude", Path("claude/CLAUDE.md"), Path("CLAUDE.md"), True, "markdown-full", ("user", "soul", "agents")),
-    "cursor": Adapter("cursor", Path("cursor/dprofile.mdc"), Path(".cursor/rules/dprofile.mdc"), True, "cursor-mdc", ("agents",)),
+    "claude": Adapter(
+        "claude",
+        Path("claude/CLAUDE.md"),
+        Path("CLAUDE.md"),
+        True,
+        "markdown-full",
+        ("user", "soul", "agents"),
+    ),
+    "cursor": Adapter(
+        "cursor",
+        Path("cursor/dprofile.mdc"),
+        Path(".cursor/rules/dprofile.mdc"),
+        True,
+        "cursor-mdc",
+        ("agents",),
+    ),
     "copilot": Adapter(
         "copilot",
         Path("copilot/copilot-instructions.md"),
@@ -125,8 +127,22 @@ VERIFIED_ADAPTERS: dict[str, Adapter] = {
         ("agents",),
     ),
     "codex": Adapter("codex", Path("codex/AGENTS.md"), Path("AGENTS.md"), True, "agents-md", ("agents",)),
-    "gemini": Adapter("gemini", Path("gemini/GEMINI.md"), Path("GEMINI.md"), True, "markdown-full", ("user", "soul", "agents")),
+    "gemini": Adapter(
+        "gemini",
+        Path("gemini/GEMINI.md"),
+        Path("GEMINI.md"),
+        True,
+        "markdown-full",
+        ("user", "soul", "agents"),
+    ),
     "opencode": Adapter("opencode", Path("opencode/AGENTS.md"), Path("AGENTS.md"), True, "agents-md", ("agents",)),
+}
+
+GLOBAL_ADAPTER_PATHS: dict[str, Path] = {
+    "claude": Path("~/.claude"),
+    "gemini": Path("~/.gemini"),
+    "codex": Path("~/.codex"),
+    "opencode": Path("~/.opencode"),
 }
 
 
@@ -147,10 +163,15 @@ def resolve_profiles_dir(raw_profiles_dir: str | None) -> Path:
     return default_profiles_dir()
 
 
-def resolve_target_dir(raw_target_dir: str | None) -> Path:
-    if not raw_target_dir:
-        raise ProfileError("--target-dir is required for this command")
-    return Path(raw_target_dir).expanduser().resolve()
+def resolve_target_dir() -> Path:
+    return Path(".").resolve()
+
+
+def get_global_target(adapter_name: str) -> Path:
+    if adapter_name in GLOBAL_ADAPTER_PATHS:
+        return GLOBAL_ADAPTER_PATHS[adapter_name].expanduser().resolve()
+    # Fallback for other adapters
+    return Path(f"~/.{adapter_name}").expanduser().resolve()
 
 
 def project_state_path(target_dir: Path) -> Path:
@@ -165,10 +186,10 @@ def adapter_for(name: str) -> Adapter:
     raise ProfileError(f"unknown adapter: {name}")
 
 
-def parse_adapters(raw_agents: str) -> list[str]:
-    names = [item.strip().lower() for item in raw_agents.split(",") if item.strip()]
+def parse_adapters(raw_ai: str) -> list[str]:
+    names = [item.strip().lower() for item in raw_ai.split(",") if item.strip()]
     if not names:
-        raise ProfileError("--agents must name at least one adapter")
+        raise ProfileError("--ai must name at least one adapter")
     if "all" in names:
         return list(ALL_ADAPTERS)
     seen: set[str] = set()
@@ -348,7 +369,11 @@ def state_path(target_dir: Path) -> Path:
 
 
 def read_state(target_dir: Path) -> dict[str, object] | None:
-    path = state_path(target_dir)
+    project_path = project_state_path(target_dir)
+    if project_path.exists():
+        path = project_path
+    else:
+        path = state_path(target_dir)
     if not path.exists():
         return None
     try:
@@ -369,62 +394,7 @@ def validate_target(target_dir: Path) -> list[str]:
         path = target_dir / filename
         if path.exists() and path.is_dir() and not path.is_symlink():
             errors.append(f"refusing to replace directory: {path}")
-    if state_path(target_dir).exists():
-        read_state(target_dir)
     return errors
-
-
-def validate_project_target(target_dir: Path) -> list[str]:
-    errors: list[str] = []
-    if not target_dir.exists():
-        errors.append(f"target directory does not exist: {target_dir}")
-        return errors
-    if not target_dir.is_dir():
-        errors.append(f"target path is not a directory: {target_dir}")
-        return errors
-    dprofile_dir = target_dir / PROJECT_DIR
-    if dprofile_dir.exists() and not dprofile_dir.is_dir():
-        errors.append(f"refusing to replace file: {dprofile_dir}")
-    return errors
-
-
-def backup_target(target_dir: Path) -> Path | None:
-    existing = [target_dir / filename for filename in PROFILE_FILES if (target_dir / filename).exists()]
-    state = state_path(target_dir)
-    if state.exists():
-        existing.append(state)
-    if not existing:
-        return None
-
-    backup = target_dir / BACKUP_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup.mkdir(parents=True, exist_ok=False)
-    for source in existing:
-        target = backup / source.name
-        if source.is_symlink():
-            resolved = source.resolve()
-            if resolved.exists():
-                shutil.copy2(resolved, target)
-            else:
-                target.write_text(f"broken symlink: {os.readlink(source)}\n", encoding="utf-8")
-        else:
-            shutil.copy2(source, target)
-    return backup
-
-
-def replace_target_file(source: Path, target: Path, mode: str) -> None:
-    if target.exists() or target.is_symlink():
-        if target.is_dir() and not target.is_symlink():
-            raise ProfileError(f"refusing to replace directory: {target}")
-        target.unlink()
-    if mode == "copy":
-        shutil.copy2(source, target)
-        return
-    relative_source = os.path.relpath(source, start=target.parent)
-    target.symlink_to(relative_source)
-
-
-def relative_to_target(target_dir: Path, path: Path) -> str:
-    return path.relative_to(target_dir).as_posix()
 
 
 def is_managed_file(path: Path) -> bool:
@@ -436,7 +406,9 @@ def is_managed_file(path: Path) -> bool:
 
 def backup_project_file(target_dir: Path, path: Path) -> Path:
     relative = path.relative_to(target_dir)
-    backup = target_dir / PROJECT_DIR / PROJECT_BACKUP_DIR / datetime.now().strftime("%Y%m%d-%H%M%S") / relative
+    backup_base = target_dir / PROJECT_DIR / PROJECT_BACKUP_DIR
+
+    backup = backup_base / datetime.now().strftime("%Y%m%d-%H%M%S") / relative
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, backup)
     return backup
@@ -468,92 +440,35 @@ def write_project_state(
     activated: list[Path],
     skipped_activation: list[str],
     backups: list[Path],
+    skipped_duplicate_activation: list[tuple[str, str, str]],
 ) -> None:
     state = {
-        "scope": "project",
         "active_profile": profile.name,
         "source_profile_path": str(profile.path),
         "profiles_dir": str(profiles_dir),
         "target_dir": str(target_dir),
         "applied_at": datetime.now(timezone.utc).isoformat(),
         "adapters": adapters,
-        "generated_files": [relative_to_target(target_dir, path) for path in generated],
-        "activated_files": [relative_to_target(target_dir, path) for path in activated],
+        "generated_files": [os.path.relpath(path, target_dir) for path in generated],
+        "activated_files": [os.path.relpath(path, target_dir) for path in activated],
         "skipped_activation": skipped_activation,
-        "backup_paths": [relative_to_target(target_dir, path) for path in backups],
+        "backup_paths": [os.path.relpath(path, target_dir) for path in backups],
+        "skipped_duplicate_activation": [
+            {"skipped": s, "path": p, "active": a} for s, p, a in skipped_duplicate_activation
+        ],
     }
     path = project_state_path(target_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def apply_project_profile(
+def apply_profile(
     profiles_dir: Path,
     target_dir: Path,
     name: str,
     adapters: list[str],
-    activate: bool,
     force: bool,
-) -> tuple[list[Path], list[Path], list[str], list[Path]]:
-    errors = validate_profile(profiles_dir, name)
-    if errors:
-        raise ProfileError("; ".join(errors))
-    target_errors = validate_project_target(target_dir)
-    if target_errors:
-        raise ProfileError("; ".join(target_errors))
-
-    profile = load_profile(profiles_dir, name)
-    generated: list[Path] = []
-    activated: list[Path] = []
-    skipped_activation: list[str] = []
-    backups: list[Path] = []
-
-    for adapter_name in adapters:
-        adapter = adapter_for(adapter_name)
-        content = render_adapter_file(profile, adapter)
-        generated_path = target_dir / PROJECT_DIR / PROJECT_GENERATED_DIR / adapter.generated_path
-        write_text(generated_path, content)
-        generated.append(generated_path)
-
-        if not activate:
-            continue
-        if not adapter.verified or adapter.activated_path is None:
-            skipped_activation.append(adapter.name)
-            continue
-        activated_path = target_dir / adapter.activated_path
-        if activated_path in activated:
-            continue
-        backup = write_activated_file(target_dir, activated_path, content, force)
-        if backup:
-            backups.append(backup)
-        activated.append(activated_path)
-
-    write_project_state(target_dir, profile, profiles_dir, adapters, generated, activated, skipped_activation, backups)
-    return generated, activated, skipped_activation, backups
-
-
-def write_state(
-    target_dir: Path,
-    profile: Profile,
-    profiles_dir: Path,
-    mode: str,
-    backup: Path | None,
-    changed: list[Path],
-) -> None:
-    state = {
-        "active_profile": profile.name,
-        "source_profile_path": str(profile.path),
-        "profiles_dir": str(profiles_dir),
-        "target_dir": str(target_dir),
-        "switched_at": datetime.now(timezone.utc).isoformat(),
-        "backup_path": str(backup) if backup else None,
-        "write_mode": mode,
-        "files": [str(path) for path in changed],
-    }
-    state_path(target_dir).write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-
-def switch_profile(profiles_dir: Path, target_dir: Path, name: str, mode: str) -> tuple[Path | None, list[Path]]:
+) -> tuple[list[Path], list[Path], list[str], list[Path], list[tuple[str, str, str]]]:
     errors = validate_profile(profiles_dir, name)
     if errors:
         raise ProfileError("; ".join(errors))
@@ -561,18 +476,53 @@ def switch_profile(profiles_dir: Path, target_dir: Path, name: str, mode: str) -
     if target_errors:
         raise ProfileError("; ".join(target_errors))
 
-    target_dir.mkdir(parents=True, exist_ok=True)
-    backup = backup_target(target_dir)
     profile = load_profile(profiles_dir, name)
+    generated: list[Path] = []
+    activated: list[Path] = []
+    skipped_activation: list[str] = []
+    skipped_duplicate_activation: list[tuple[str, str, str]] = []
+    activation_winner: dict[Path, str] = {}
+    backups: list[Path] = []
 
-    changed: list[Path] = []
-    for filename in PROFILE_FILES:
-        target = target_dir / filename
-        replace_target_file(profile.path / filename, target, mode)
-        changed.append(target)
+    for adapter_name in adapters:
+        adapter = adapter_for(adapter_name)
 
-    write_state(target_dir, profile, profiles_dir, mode, backup, changed)
-    return backup, changed
+        content = render_adapter_file(profile, adapter)
+        generated_path = target_dir / PROJECT_DIR / PROJECT_GENERATED_DIR / adapter.generated_path
+        write_text(generated_path, content)
+        generated.append(generated_path)
+
+        if not adapter.verified or adapter.activated_path is None:
+            skipped_activation.append(adapter.name)
+            continue
+        activated_path = target_dir / adapter.activated_path
+        if activated_path in activation_winner:
+            skipped_duplicate_activation.append(
+                (
+                    adapter.name,
+                    os.path.relpath(activated_path, target_dir),
+                    activation_winner[activated_path],
+                )
+            )
+            continue
+        backup = write_activated_file(target_dir, activated_path, content, force)
+        if backup:
+            backups.append(backup)
+        activated.append(activated_path)
+        activation_winner[activated_path] = adapter.name
+
+    write_project_state(
+        target_dir,
+        profile,
+        profiles_dir,
+        adapters,
+        generated,
+        activated,
+        skipped_activation,
+        backups,
+        skipped_duplicate_activation,
+    )
+    return generated, activated, skipped_activation, backups, skipped_duplicate_activation
 
 
 def read_file(path: Path) -> list[str]:
@@ -583,10 +533,10 @@ def command_list(args: argparse.Namespace) -> int:
     profiles_dir = resolve_profiles_dir(args.profiles_dir)
     profiles = discover_profiles(profiles_dir)
     active = None
-    if args.target_dir:
-        target_dir = resolve_target_dir(args.target_dir)
-        state = read_state(target_dir)
-        active = state.get("active_profile") if state else None
+
+    target_dir = resolve_target_dir()
+    state = read_state(target_dir)
+    active = state.get("active_profile") if state else None
 
     if not profiles:
         print("No profiles found.")
@@ -621,7 +571,7 @@ def command_validate_profile(args: argparse.Namespace) -> int:
 
 def command_validate_target(args: argparse.Namespace) -> int:
     try:
-        target_dir = resolve_target_dir(args.target_dir)
+        target_dir = resolve_target_dir()
         errors = validate_target(target_dir)
     except ProfileError as exc:
         print(f"target: invalid")
@@ -636,101 +586,63 @@ def command_validate_target(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_switch(args: argparse.Namespace) -> int:
-    profiles_dir = resolve_profiles_dir(args.profiles_dir)
-    try:
-        target_dir = resolve_target_dir(args.target_dir)
-        backup, changed = switch_profile(profiles_dir, target_dir, args.profile, args.mode)
-    except ProfileError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-
-    print(f"Active profile: {args.profile}")
-    print(f"Target directory: {target_dir}")
-    print(f"Write mode: {args.mode}")
-    print(f"Backup: {backup if backup else 'none'}")
-    print("Changed files:")
-    for path in changed:
-        if path.is_symlink():
-            print(f"  - {path} -> {os.readlink(path)}")
-        else:
-            print(f"  - {path}")
-    print(f"State: {state_path(target_dir)}")
-    return 0
-
-
 def command_apply(args: argparse.Namespace) -> int:
     profiles_dir = resolve_profiles_dir(args.profiles_dir)
+    adapters = parse_adapters(args.ai)
+
+    # Use a dictionary to store results for reporting
+    results = []
+
     try:
-        target_dir = resolve_target_dir(args.target_dir)
-        adapters = parse_adapters(args.agents)
-        generated, activated, skipped_activation, backups = apply_project_profile(
-            profiles_dir,
-            target_dir,
-            args.profile,
-            adapters,
-            args.activate,
-            args.force,
-        )
+        if args.global_:
+            # In global mode, we loop through each adapter and apply to its default global path
+            for adapter_name in adapters:
+                target_dir = get_global_target(adapter_name)
+
+                res = apply_profile(
+                    profiles_dir,
+                    target_dir,
+                    args.profile,
+                    [adapter_name],
+                    args.force,
+                )
+                results.append((target_dir, [adapter_name], res))
+        else:
+            target_dir = resolve_target_dir()
+            res = apply_profile(
+                profiles_dir,
+                target_dir,
+                args.profile,
+                adapters,
+                args.force,
+            )
+            results.append((target_dir, adapters, res))
+
     except ProfileError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     print(f"Applied profile: {args.profile}")
-    print(f"Target directory: {target_dir}")
-    print(f"Adapters: {', '.join(adapters)}")
-    print(f"Activation: {'enabled' if args.activate else 'disabled'}")
-    print("Generated files:")
-    for path in generated:
-        print(f"  - {relative_to_target(target_dir, path)}")
-    if activated:
-        print("Activated files:")
-        for path in activated:
-            print(f"  - {relative_to_target(target_dir, path)}")
-    if skipped_activation:
-        print(f"Skipped activation for unverified adapters: {', '.join(skipped_activation)}")
-    if backups:
-        print("Backups:")
-        for path in backups:
-            print(f"  - {relative_to_target(target_dir, path)}")
-    print(f"State: {relative_to_target(target_dir, project_state_path(target_dir))}")
-    return 0
+    for target_dir, ads, (generated, activated, skipped_activation, backups, skipped_duplicate_activation) in results:
+        print(f"\nTarget directory: {target_dir}")
+        print(f"AI adapters: {', '.join(ads)}")
+        if activated:
+            print("Activated files:")
+            for path in activated:
+                print(f"  - {os.path.relpath(path, target_dir)}")
+        if skipped_duplicate_activation:
+            print("Skipped duplicate activated paths (first adapter in --ai order wins):")
+            for skipped, rel_path, active in skipped_duplicate_activation:
+                print(f"  - adapter {skipped}: {rel_path} (active content from {active})")
+        if skipped_activation:
+            print(f"Skipped activation for unverified adapters: {', '.join(skipped_activation)}")
+        if backups:
+            print("Backups:")
+            for path in backups:
+                print(f"  - {os.path.relpath(path, target_dir)}")
+        state_file = project_state_path(target_dir)
+        print(f"State: {os.path.relpath(state_file, target_dir)}")
 
-
-def command_init(args: argparse.Namespace) -> int:
-    profiles_dir = resolve_profiles_dir(args.profiles_dir)
-    try:
-        target_dir = resolve_target_dir(args.target_dir)
-        adapters = parse_adapters(args.ai)
-        generated, activated, skipped_activation, backups = apply_project_profile(
-            profiles_dir,
-            target_dir,
-            args.profile,
-            adapters,
-            True,
-            args.force,
-        )
-    except ProfileError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-
-    print(f"Initialized profile: {args.profile}")
-    print(f"Target directory: {target_dir}")
-    print(f"AI adapters: {', '.join(adapters)}")
-    print("Generated files:")
-    for path in generated:
-        print(f"  - {relative_to_target(target_dir, path)}")
-    if activated:
-        print("Activated files:")
-        for path in activated:
-            print(f"  - {relative_to_target(target_dir, path)}")
-    if skipped_activation:
-        print(f"Skipped activation for unverified adapters: {', '.join(skipped_activation)}")
-    if backups:
-        print("Backups:")
-        for path in backups:
-            print(f"  - {relative_to_target(target_dir, path)}")
-    print(f"State: {relative_to_target(target_dir, project_state_path(target_dir))}")
     return 0
 
 
@@ -744,26 +656,15 @@ def command_guide(args: argparse.Namespace) -> int:
             The CLI is the secondary deterministic executor and fallback help
             surface for humans or Agents that do not have the skill installed.
 
-            Use switch for Agent-owned config directories:
-              dprofile switch coding --target-dir ~/.codex
+            Apply a profile to the current code project:
+              dprofile apply coding --ai claude,cursor
 
-            switch writes the raw dprofile source files:
-              USER.md
-              SOUL.md
-              AGENTS.md
+            This targets the current directory and keeps state under .dprofile/.
 
-            Use init for code projects:
-              dprofile init coding --target-dir . --ai codex
-              dprofile init coding --target-dir . --ai claude,cursor,copilot
-              dprofile init coding --target-dir . --ai all
+            Apply a profile to standard global Agent config:
+              dprofile apply coding --ai claude -g
 
-            init writes .dprofile/generated/<adapter>/ and activates verified
-            adapter-native files such as AGENTS.md, CLAUDE.md, GEMINI.md,
-            .cursor/rules/dprofile.mdc, and .github/copilot-instructions.md.
-
-            Use apply for review-first project generation:
-              dprofile apply coding --target-dir . --agents all
-              dprofile apply coding --target-dir . --agents codex --activate
+            The -g flag targets each tool's standard global directory (e.g., ~/.claude).
 
             Adapter layer policy:
               claude, gemini: USER.md + SOUL.md + AGENTS.md
@@ -771,8 +672,10 @@ def command_guide(args: argparse.Namespace) -> int:
               codex, opencode: profile summary + AGENTS.md
               unverified adapters: generated-only manual instructions
 
+            Shared activated paths (for example codex and opencode both use AGENTS.md):
+              the first adapter in --ai order wins; apply prints which adapters were skipped.
+
             Safety:
-              Project mode keeps state and generated files under .dprofile/.
               Existing unmanaged activated files are not overwritten unless
               --force is passed.
             """
@@ -797,28 +700,48 @@ def command_show(args: argparse.Namespace) -> int:
         return 0
 
     try:
-        target_dir = resolve_target_dir(args.target_dir)
-        state = read_state(target_dir)
+        if args.global_ and args.ai:
+            adapters = parse_adapters(args.ai)
+            targets = [get_global_target(a) for a in adapters]
+        else:
+            targets = [resolve_target_dir()]
+
+        for target_dir in targets:
+            state = read_state(target_dir)
+            if not state:
+                if len(targets) == 1:
+                    print(f"No active profile state for {target_dir}.")
+                    return 1
+                print(f"--- {target_dir}: No active profile state. ---")
+                continue
+
+            if len(targets) > 1:
+                print(f"--- {target_dir} ---")
+            print(f"Active profile: {state.get('active_profile')}")
+            print(f"Source profile: {state.get('source_profile_path')}")
+            print(f"Applied at: {state.get('applied_at')}")
+            skipped_dupes = state.get("skipped_duplicate_activation") or []
+            if skipped_dupes:
+                print("Skipped duplicate activated paths:")
+                for item in skipped_dupes:
+                    print(
+                        f"  - adapter {item.get('skipped')}: {item.get('path')} "
+                        f"(active content from {item.get('active')})"
+                    )
+            print("Activated files:")
+            for path_str in state.get("activated_files", []):
+                path = target_dir / path_str
+                if path.is_symlink():
+                    print(f"  - {path_str} -> {os.readlink(path)}")
+                elif path.exists():
+                    print(f"  - {path_str} (regular file)")
+                else:
+                    print(f"  - {path_str} (missing)")
+            print()
     except ProfileError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    if not state:
-        print("No active profile state.")
-        return 1
 
-    print(f"Active profile: {state.get('active_profile')}")
-    print(f"Target directory: {target_dir}")
-    print(f"Write mode: {state.get('write_mode')}")
-    print(f"Source profile: {state.get('source_profile_path')}")
-    print(f"Backup: {state.get('backup_path')}")
-    for filename in PROFILE_FILES:
-        path = target_dir / filename
-        if path.is_symlink():
-            print(f"{filename}: {os.readlink(path)}")
-        elif path.exists():
-            print(f"{filename}: regular file")
-        else:
-            print(f"{filename}: missing")
     return 0
 
 
@@ -867,54 +790,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     guide_parser = subparsers.add_parser(
         "guide",
-        help="explain when to use switch, init, and apply",
+        help="explain apply and adapter policy",
         formatter_class=formatter,
     )
     guide_parser.set_defaults(func=command_guide)
 
-    list_parser = subparsers.add_parser("list", help="list available profiles")
+    list_parser = subparsers.add_parser(
+        "list",
+        help="list available profiles",
+        epilog="Active profile (*) is from .dprofile/state.json in the current directory only. "
+        "For global Agent homes use: dprofile show -g --ai <adapter>.",
+        formatter_class=formatter,
+    )
     add_common_profile_arg(list_parser)
-    list_parser.add_argument("--target-dir", help="optional target directory used to mark the active profile")
     list_parser.set_defaults(func=command_list)
-
-    switch_parser = subparsers.add_parser("switch", help="switch a target Agent config directory to a profile")
-    add_common_profile_arg(switch_parser)
-    switch_parser.add_argument("profile")
-    switch_parser.add_argument("--target-dir", required=True, help="Agent configuration directory to update")
-    switch_parser.add_argument("--mode", choices=("symlink", "copy"), default="symlink")
-    switch_parser.set_defaults(func=command_switch)
 
     apply_parser = subparsers.add_parser(
         "apply",
-        help="apply a profile to a code project through adapters",
+        help="apply a profile to a target through AI adapters",
         epilog=PROJECT_HELP_EPILOG,
         formatter_class=formatter,
     )
     add_common_profile_arg(apply_parser)
     apply_parser.add_argument("profile")
-    apply_parser.add_argument("--target-dir", required=True, help="code project directory to update")
-    apply_parser.add_argument("--agents", default="all", help="comma-separated adapter names, or all")
-    apply_parser.add_argument("--activate", action="store_true", help="write verified adapter outputs to native paths")
+    apply_parser.add_argument("--ai", default="all", help="comma-separated AI adapter names, or all")
     apply_parser.add_argument("--force", action="store_true", help="overwrite unmanaged activated files after backup")
+    apply_parser.add_argument("-g", "--global", dest="global_", action="store_true", help="apply to each adapter's standard global directory (e.g., ~/.claude)")
     apply_parser.set_defaults(func=command_apply)
-
-    init_parser = subparsers.add_parser(
-        "init",
-        help="install project adapter files for AI assistants",
-        epilog=PROJECT_HELP_EPILOG,
-        formatter_class=formatter,
-    )
-    add_common_profile_arg(init_parser)
-    init_parser.add_argument("profile")
-    init_parser.add_argument("--target-dir", required=True, help="code project directory to initialize")
-    init_parser.add_argument("--ai", default="all", help="comma-separated AI adapter names, or all")
-    init_parser.add_argument("--force", action="store_true", help="overwrite unmanaged activated files after backup")
-    init_parser.set_defaults(func=command_init)
 
     show_parser = subparsers.add_parser("show", help="show target state or a named profile")
     add_common_profile_arg(show_parser)
     show_parser.add_argument("profile", nargs="?", help="profile to inspect; omit to show target state")
-    show_parser.add_argument("--target-dir", help="Agent configuration directory to inspect")
+    show_parser.add_argument("--ai", help="AI adapter names when using --global")
+    show_parser.add_argument("-g", "--global", dest="global_", action="store_true", help="show state for global AI adapters")
     show_parser.set_defaults(func=command_show)
 
     diff_parser = subparsers.add_parser("diff", help="diff two profiles")
@@ -930,8 +838,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate_profile_parser.add_argument("profile", nargs="?")
     validate_profile_parser.set_defaults(func=command_validate_profile)
 
-    validate_target_parser = subparsers.add_parser("validate-target", help="validate a target Agent config directory")
-    validate_target_parser.add_argument("--target-dir", required=True)
+    validate_target_parser = subparsers.add_parser("validate-target", help="validate the current directory")
     validate_target_parser.set_defaults(func=command_validate_target)
     return parser
 

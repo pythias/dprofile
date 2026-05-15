@@ -36,9 +36,10 @@ def write_profile(profiles_dir: Path, name: str, text: str) -> None:
     (profile / "AGENTS.md").write_text(f"# Agents\n\n{text}\n", encoding="utf-8")
 
 
-def run_cli(profiles_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_cli(profiles_dir: Path, *args: str, cwd: Path | str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(CLI), *args, "--profiles-dir", str(profiles_dir)],
+        cwd=cwd,
         check=False,
         text=True,
         stdout=subprocess.PIPE,
@@ -46,9 +47,10 @@ def run_cli(profiles_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def run_raw_cli(*args: str) -> subprocess.CompletedProcess[str]:
+def run_raw_cli(*args: str, cwd: Path | str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(CLI), *args],
+        cwd=cwd,
         check=False,
         text=True,
         stdout=subprocess.PIPE,
@@ -57,7 +59,7 @@ def run_raw_cli(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class AgentProfileTests(unittest.TestCase):
-    def test_switch_creates_symlinks_and_state_in_target_dir(self) -> None:
+    def test_apply_to_agent_style_dir_uses_dprofile_state_and_generated(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -65,20 +67,17 @@ class AgentProfileTests(unittest.TestCase):
             target_dir.mkdir()
             write_profile(profiles_dir, "architect", "architecture")
 
-            result = run_cli(profiles_dir, "switch", "architect", "--target-dir", str(target_dir))
+            result = run_cli(profiles_dir, "apply", "architect", "--ai", "claude", cwd=target_dir)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Active profile: architect", result.stdout)
+            self.assertIn("Applied profile: architect", result.stdout)
             self.assertIn(f"Target directory: {target_dir.resolve()}", result.stdout)
-            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["active_profile"], "architect")
-            self.assertEqual(state["write_mode"], "symlink")
-            for filename in ("USER.md", "SOUL.md", "AGENTS.md"):
-                current_file = target_dir / filename
-                self.assertTrue(current_file.is_symlink())
-                self.assertEqual(current_file.resolve(), (profiles_dir / "architect" / filename).resolve())
+            self.assertTrue((target_dir / ".dprofile/generated/claude/CLAUDE.md").is_file())
+            self.assertTrue((target_dir / "CLAUDE.md").is_file())
 
-    def test_switch_copy_mode_writes_regular_files(self) -> None:
+    def test_apply_writes_regular_activated_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -88,21 +87,18 @@ class AgentProfileTests(unittest.TestCase):
 
             result = run_cli(
                 profiles_dir,
-                "switch",
+                "apply",
                 "architect",
-                "--target-dir",
-                str(target_dir),
-                "--mode",
-                "copy",
+                "--ai",
+                "claude",
+                cwd=target_dir,
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertFalse((target_dir / "USER.md").is_symlink())
-            self.assertIn("architecture", (target_dir / "USER.md").read_text(encoding="utf-8"))
-            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
-            self.assertEqual(state["write_mode"], "copy")
+            self.assertFalse((target_dir / "CLAUDE.md").is_symlink())
+            self.assertIn("architecture", (target_dir / "CLAUDE.md").read_text(encoding="utf-8"))
 
-    def test_switch_backs_up_previous_target_files(self) -> None:
+    def test_apply_backs_up_previous_activated_files_under_dprofile(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -111,17 +107,17 @@ class AgentProfileTests(unittest.TestCase):
             write_profile(profiles_dir, "architect", "architecture")
             write_profile(profiles_dir, "writer", "writing")
             self.assertEqual(
-                run_cli(profiles_dir, "switch", "architect", "--target-dir", str(target_dir)).returncode,
+                run_cli(profiles_dir, "apply", "architect", "--ai", "claude", cwd=target_dir).returncode,
                 0,
             )
 
-            result = run_cli(profiles_dir, "switch", "writer", "--target-dir", str(target_dir))
+            result = run_cli(profiles_dir, "apply", "writer", "--ai", "claude", "--force", cwd=target_dir)
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            backups = list((target_dir / ".dprofile-backups").iterdir())
+            backups = list((target_dir / ".dprofile/backups").iterdir())
             self.assertEqual(len(backups), 1)
-            self.assertIn("architecture", (backups[0] / "USER.md").read_text(encoding="utf-8"))
-            state = json.loads((target_dir / ".dprofile-state.json").read_text(encoding="utf-8"))
+            self.assertIn("architecture", (backups[0] / "CLAUDE.md").read_text(encoding="utf-8"))
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["active_profile"], "writer")
 
     def test_validate_profile_reports_missing_file(self) -> None:
@@ -143,7 +139,8 @@ class AgentProfileTests(unittest.TestCase):
             (target_dir / "USER.md").mkdir()
 
             result = subprocess.run(
-                [sys.executable, str(CLI), "validate-target", "--target-dir", str(target_dir)],
+                [sys.executable, str(CLI), "validate-target"],
+                cwd=target_dir,
                 check=False,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -168,7 +165,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertIn("-architecture", result.stdout)
             self.assertIn("+writing", result.stdout)
 
-    def test_list_marks_active_profile_when_target_dir_is_provided(self) -> None:
+    def test_list_marks_active_profile_when_run_in_target_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -176,18 +173,15 @@ class AgentProfileTests(unittest.TestCase):
             target_dir.mkdir()
             write_profile(profiles_dir, "architect", "architecture")
             write_profile(profiles_dir, "writer", "writing")
-            self.assertEqual(
-                run_cli(profiles_dir, "switch", "writer", "--target-dir", str(target_dir)).returncode,
-                0,
-            )
+            self.assertEqual(run_cli(profiles_dir, "apply", "writer", "--ai", "claude", cwd=target_dir).returncode, 0)
 
-            result = run_cli(profiles_dir, "list", "--target-dir", str(target_dir))
+            result = run_cli(profiles_dir, "list", cwd=target_dir)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("* writer - writer profile", result.stdout)
             self.assertIn("  architect - architect profile", result.stdout)
 
-    def test_apply_generates_project_adapter_outputs_without_activation(self) -> None:
+    def test_apply_generates_and_activates_project_adapters(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -199,24 +193,23 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "claude,cursor,augment",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((target_dir / ".dprofile/generated/claude/CLAUDE.md").is_file())
             self.assertTrue((target_dir / ".dprofile/generated/cursor/dprofile.mdc").is_file())
             self.assertTrue((target_dir / ".dprofile/generated/augment/INSTRUCTIONS.md").is_file())
-            self.assertFalse((target_dir / "CLAUDE.md").exists())
-            self.assertFalse((target_dir / ".cursor").exists())
+            # Activation is default
+            self.assertTrue((target_dir / "CLAUDE.md").exists())
+            self.assertTrue((target_dir / ".cursor/rules/dprofile.mdc").exists())
             state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
-            self.assertEqual(state["scope"], "project")
             self.assertEqual(state["active_profile"], "coding")
-            self.assertEqual(state["activated_files"], [])
+            self.assertIn("CLAUDE.md", state["activated_files"])
 
-    def test_apply_activate_writes_verified_adapter_paths(self) -> None:
+    def test_apply_writes_verified_adapter_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -228,11 +221,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "claude,cursor",
-                "--activate",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -260,11 +251,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "augment",
-                "--activate",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -285,18 +274,16 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "claude",
-                "--activate",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 1)
             self.assertIn("refusing to overwrite unmanaged file", result.stderr)
             self.assertEqual((target_dir / "CLAUDE.md").read_text(encoding="utf-8"), "human notes\n")
 
-    def test_init_ai_uses_install_style_adapter_activation(self) -> None:
+    def test_apply_ai_uses_install_style_adapter_activation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -306,23 +293,23 @@ class AgentProfileTests(unittest.TestCase):
 
             result = run_cli(
                 profiles_dir,
-                "init",
+                "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
                 "--ai",
                 "codex",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Initialized profile: coding", result.stdout)
+            self.assertIn("Applied profile: coding", result.stdout)
             self.assertTrue((target_dir / ".dprofile/generated/codex/AGENTS.md").is_file())
             self.assertIn("implementation", (target_dir / "AGENTS.md").read_text(encoding="utf-8"))
             state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["adapters"], ["codex"])
             self.assertEqual(state["activated_files"], ["AGENTS.md"])
+            self.assertEqual(state["skipped_duplicate_activation"], [])
 
-    def test_init_ai_unverified_generates_only(self) -> None:
+    def test_apply_skips_second_adapter_when_agents_md_shared(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             profiles_dir = root / "profiles"
@@ -332,12 +319,40 @@ class AgentProfileTests(unittest.TestCase):
 
             result = run_cli(
                 profiles_dir,
-                "init",
+                "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
+                "--ai",
+                "codex,opencode",
+                cwd=target_dir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Skipped duplicate activated paths", result.stdout)
+            ag = (target_dir / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("adapter=codex", ag)
+            self.assertNotIn("adapter=opencode", ag)
+            self.assertTrue((target_dir / ".dprofile/generated/opencode/AGENTS.md").is_file())
+            state = json.loads((target_dir / ".dprofile/state.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                state["skipped_duplicate_activation"],
+                [{"skipped": "opencode", "path": "AGENTS.md", "active": "codex"}],
+            )
+
+    def test_apply_ai_unverified_generates_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            profiles_dir = root / "profiles"
+            target_dir = root / "project"
+            target_dir.mkdir()
+            write_profile(profiles_dir, "coding", "implementation")
+
+            result = run_cli(
+                profiles_dir,
+                "apply",
+                "coding",
                 "--ai",
                 "augment",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -357,10 +372,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "cursor",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -383,10 +397,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "copilot",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -408,10 +421,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "codex",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -434,10 +446,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "claude",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -458,10 +469,9 @@ class AgentProfileTests(unittest.TestCase):
                 profiles_dir,
                 "apply",
                 "coding",
-                "--target-dir",
-                str(target_dir),
-                "--agents",
+                "--ai",
                 "augment",
+                cwd=target_dir
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -471,19 +481,23 @@ class AgentProfileTests(unittest.TestCase):
             self.assertIn("## Agent Identity", content)
             self.assertIn("## Operating Protocol", content)
 
-    def test_top_level_help_explains_switch_init_apply_split(self) -> None:
+    def test_list_help_mentions_cwd_state(self) -> None:
+        result = run_raw_cli("list", "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("current directory", result.stdout)
+
+    def test_top_level_help_explains_apply_and_global(self) -> None:
         result = run_raw_cli("--help")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Primary workflow lives in SKILL.md", result.stdout)
-        self.assertIn("Agent config targets", result.stdout)
-        self.assertIn("Code project targets", result.stdout)
-        self.assertIn("switch", result.stdout)
-        self.assertIn("init", result.stdout)
+        self.assertIn("Apply a profile to the current project", result.stdout)
+        self.assertIn("Apply a profile to standard global Agent config", result.stdout)
         self.assertIn("apply", result.stdout)
 
-    def test_init_help_explains_adapter_layer_compatibility(self) -> None:
-        result = run_raw_cli("init", "--help")
+    def test_apply_help_explains_adapter_layer_compatibility(self) -> None:
+        result = run_raw_cli("apply", "--help")
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Claude/Gemini receive full profile context", result.stdout)
@@ -496,9 +510,9 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("dprofile usage guide", result.stdout)
         self.assertIn("SKILL.md is the primary Agent workflow", result.stdout)
-        self.assertIn("Use switch for Agent-owned config directories", result.stdout)
-        self.assertIn("Use init for code projects", result.stdout)
-        self.assertIn("dprofile init coding --target-dir . --ai codex", result.stdout)
+        self.assertIn("Apply a profile to the current code project", result.stdout)
+        self.assertIn("Apply a profile to standard global Agent config", result.stdout)
+        self.assertIn("dprofile apply coding --ai claude,cursor", result.stdout)
 
 
 if __name__ == "__main__":
