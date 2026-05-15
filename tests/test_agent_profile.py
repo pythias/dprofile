@@ -46,6 +46,16 @@ def run_cli(profiles_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def run_raw_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(CLI), *args],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 class AgentProfileTests(unittest.TestCase):
     def test_switch_creates_symlinks_and_state_in_target_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -460,6 +470,35 @@ class AgentProfileTests(unittest.TestCase):
             self.assertIn("## User Context", content)
             self.assertIn("## Agent Identity", content)
             self.assertIn("## Operating Protocol", content)
+
+    def test_top_level_help_explains_switch_init_apply_split(self) -> None:
+        result = run_raw_cli("--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Primary workflow lives in SKILL.md", result.stdout)
+        self.assertIn("Agent config targets", result.stdout)
+        self.assertIn("Code project targets", result.stdout)
+        self.assertIn("switch", result.stdout)
+        self.assertIn("init", result.stdout)
+        self.assertIn("apply", result.stdout)
+
+    def test_init_help_explains_adapter_layer_compatibility(self) -> None:
+        result = run_raw_cli("init", "--help")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Claude/Gemini receive full profile context", result.stdout)
+        self.assertIn("Cursor/Copilot/Codex/OpenCode receive operating protocol", result.stdout)
+        self.assertIn("Unverified adapters generate only", result.stdout)
+
+    def test_guide_command_outputs_agent_usage_protocol(self) -> None:
+        result = run_raw_cli("guide")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("dprofile usage guide", result.stdout)
+        self.assertIn("SKILL.md is the primary Agent workflow", result.stdout)
+        self.assertIn("Use switch for Agent-owned config directories", result.stdout)
+        self.assertIn("Use init for code projects", result.stdout)
+        self.assertIn("dprofile init coding --target-dir . --ai codex", result.stdout)
 
 
 if __name__ == "__main__":

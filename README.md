@@ -9,6 +9,8 @@
 
 `dprofile` is a safe, deterministic profile switcher designed for the modern Agent era. It treats persona sets (`USER.md`, `SOUL.md`, `AGENTS.md`) as atomic units, allowing both humans and AI Agents to swap identities in milliseconds.
 
+`SKILL.md` is the primary Agent interface for this project. It defines the workflow and safety rules. The CLI is the secondary deterministic executor and fallback guide.
+
 [中文版 (Chinese Version)](README_zh.md)
 
 ---
@@ -23,7 +25,23 @@
     - `AGENTS.md`: How you work (Tools & Protocols).
 - **🔗 Hybrid Modes**: Switch via **Symlinks** (for live updates) or **Copy** (for portable exports).
 
-## 🚀 Install
+## 🚀 Quick Start
+
+Start by installing the Agent skill. In your Agent, ask:
+
+```text
+Install the dprofile skill from github.com/pythias/dprofile.
+```
+
+After the skill is installed, ask the Agent to use a profile:
+
+```text
+Use the coding profile for this project with Codex.
+```
+
+The Agent should read `SKILL.md`, classify the target, and choose the correct operation. For code projects, that usually means generating adapter files through `dprofile init`.
+
+The CLI is optional but recommended for deterministic execution:
 
 ```bash
 pip install dprofile
@@ -59,7 +77,7 @@ dprofile init coding --target-dir . --ai claude,cursor,copilot
 dprofile apply coding --target-dir . --agents all
 ```
 
-### 3. Manual CLI (Human)
+### 3. Optional CLI (Human or Automation)
 Developers can manage Agent-owned config directories directly.
 
 ```bash
@@ -111,6 +129,7 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 
 | Command | Description |
 | :--- | :--- |
+| `dprofile guide` | Explain when to use `switch`, `init`, and `apply`. |
 | `dprofile list` | List all available profiles in the library. |
 | `dprofile init` | Install project adapter files for one or more AI assistants. |
 | `dprofile apply` | Generate project adapter files, optionally activating verified outputs. |

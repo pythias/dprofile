@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from textwrap import dedent
 
 
 REQUIRED_FILES = ("USER.md", "SOUL.md", "AGENTS.md", "manifest.yaml")
@@ -67,6 +68,49 @@ class Adapter:
 
 class ProfileError(RuntimeError):
     pass
+
+
+TOP_LEVEL_EPILOG = """\
+Primary workflow lives in SKILL.md:
+  SKILL.md is the authority for Agent judgment, target classification, adapter
+  safety, and project-vs-Agent-directory decisions. The CLI is the deterministic
+  executor and fallback guide.
+
+Agent config targets:
+  Use switch for Agent-owned config directories. This writes the raw dprofile
+  three-layer source files: USER.md, SOUL.md, and AGENTS.md.
+
+Code project targets:
+  Use init for code projects. It installs adapter-native files for AI tools and
+  keeps dprofile state under .dprofile/.
+
+  Use apply when you want to generate adapter outputs first without activating
+  native files.
+
+Examples:
+  dprofile switch coding --target-dir ~/.codex
+  dprofile init coding --target-dir . --ai codex
+  dprofile init coding --target-dir . --ai claude,cursor,copilot
+  dprofile apply coding --target-dir . --agents all
+
+Run `dprofile guide` for the full usage protocol.
+"""
+
+
+PROJECT_HELP_EPILOG = """\
+Adapter compatibility:
+  Claude/Gemini receive full profile context: USER.md, SOUL.md, and AGENTS.md.
+  Cursor/Copilot/Codex/OpenCode receive operating protocol focused output.
+  Unverified adapters generate only .dprofile/generated/<adapter>/INSTRUCTIONS.md.
+
+Verified project adapters:
+  claude   -> CLAUDE.md
+  cursor   -> .cursor/rules/dprofile.mdc
+  copilot  -> .github/copilot-instructions.md
+  codex    -> AGENTS.md
+  gemini   -> GEMINI.md
+  opencode -> AGENTS.md
+"""
 
 
 VERIFIED_ADAPTERS: dict[str, Adapter] = {
@@ -690,6 +734,53 @@ def command_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_guide(args: argparse.Namespace) -> int:
+    print(
+        dedent(
+            """\
+            dprofile usage guide
+
+            SKILL.md is the primary Agent workflow.
+            The CLI is the secondary deterministic executor and fallback help
+            surface for humans or Agents that do not have the skill installed.
+
+            Use switch for Agent-owned config directories:
+              dprofile switch coding --target-dir ~/.codex
+
+            switch writes the raw dprofile source files:
+              USER.md
+              SOUL.md
+              AGENTS.md
+
+            Use init for code projects:
+              dprofile init coding --target-dir . --ai codex
+              dprofile init coding --target-dir . --ai claude,cursor,copilot
+              dprofile init coding --target-dir . --ai all
+
+            init writes .dprofile/generated/<adapter>/ and activates verified
+            adapter-native files such as AGENTS.md, CLAUDE.md, GEMINI.md,
+            .cursor/rules/dprofile.mdc, and .github/copilot-instructions.md.
+
+            Use apply for review-first project generation:
+              dprofile apply coding --target-dir . --agents all
+              dprofile apply coding --target-dir . --agents codex --activate
+
+            Adapter layer policy:
+              claude, gemini: USER.md + SOUL.md + AGENTS.md
+              cursor, copilot: AGENTS.md only
+              codex, opencode: profile summary + AGENTS.md
+              unverified adapters: generated-only manual instructions
+
+            Safety:
+              Project mode keeps state and generated files under .dprofile/.
+              Existing unmanaged activated files are not overwritten unless
+              --force is passed.
+            """
+        )
+    )
+    return 0
+
+
 def command_show(args: argparse.Namespace) -> int:
     profiles_dir = resolve_profiles_dir(args.profiles_dir)
     if args.profile:
@@ -765,8 +856,21 @@ def add_common_profile_arg(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agent-profile")
+    formatter = argparse.RawDescriptionHelpFormatter
+    parser = argparse.ArgumentParser(
+        prog="agent-profile",
+        description="Manage dprofile persona sets for Agent configs and code project AI adapters.",
+        epilog=TOP_LEVEL_EPILOG,
+        formatter_class=formatter,
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    guide_parser = subparsers.add_parser(
+        "guide",
+        help="explain when to use switch, init, and apply",
+        formatter_class=formatter,
+    )
+    guide_parser.set_defaults(func=command_guide)
 
     list_parser = subparsers.add_parser("list", help="list available profiles")
     add_common_profile_arg(list_parser)
@@ -780,7 +884,12 @@ def build_parser() -> argparse.ArgumentParser:
     switch_parser.add_argument("--mode", choices=("symlink", "copy"), default="symlink")
     switch_parser.set_defaults(func=command_switch)
 
-    apply_parser = subparsers.add_parser("apply", help="apply a profile to a code project through adapters")
+    apply_parser = subparsers.add_parser(
+        "apply",
+        help="apply a profile to a code project through adapters",
+        epilog=PROJECT_HELP_EPILOG,
+        formatter_class=formatter,
+    )
     add_common_profile_arg(apply_parser)
     apply_parser.add_argument("profile")
     apply_parser.add_argument("--target-dir", required=True, help="code project directory to update")
@@ -789,7 +898,12 @@ def build_parser() -> argparse.ArgumentParser:
     apply_parser.add_argument("--force", action="store_true", help="overwrite unmanaged activated files after backup")
     apply_parser.set_defaults(func=command_apply)
 
-    init_parser = subparsers.add_parser("init", help="install project adapter files for AI assistants")
+    init_parser = subparsers.add_parser(
+        "init",
+        help="install project adapter files for AI assistants",
+        epilog=PROJECT_HELP_EPILOG,
+        formatter_class=formatter,
+    )
     add_common_profile_arg(init_parser)
     init_parser.add_argument("profile")
     init_parser.add_argument("--target-dir", required=True, help="code project directory to initialize")

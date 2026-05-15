@@ -9,6 +9,8 @@
 
 `dprofile` 是一个安全、确定性的人格切换工具，专为现代 Agent 时代设计。它将 `USER.md`、`SOUL.md` 和 `AGENTS.md` 视为一个原子化的“人格套装”，让开发者和 Agent 都能在毫秒间完成身份切换。
 
+本项目以 `SKILL.md` 作为 Agent 的主入口，负责定义工作流和安全规则。CLI 是次级的确定性执行器，也提供无 skill 场景下的 fallback 指南。
+
 [English Version](README.md)
 
 ---
@@ -23,7 +25,23 @@
     - `AGENTS.md`：你如何工作（工具协议与工作流）。
 - **🔗 混合写入模式**：支持 **符号链接**（实时同步更新）或 **物理复制**（便于移植导出）。
 
-## 🚀 快速安装
+## 🚀 快速开始
+
+先安装 Agent skill。在你的 Agent 里直接说：
+
+```text
+从 github.com/pythias/dprofile 安装 dprofile skill。
+```
+
+安装 skill 后，让 Agent 使用某个 profile：
+
+```text
+在这个项目里用 Codex 使用 coding profile。
+```
+
+Agent 应该读取 `SKILL.md`，判断目标类型，然后选择正确操作。对代码项目来说，通常会通过 `dprofile init` 生成 adapter 文件。
+
+CLI 是可选项，但建议安装，方便确定性执行：
 
 ```bash
 pip install dprofile
@@ -59,7 +77,7 @@ dprofile init coding --target-dir . --ai claude,cursor,copilot
 dprofile apply coding --target-dir . --agents all
 ```
 
-### 3. 手动 CLI（人工操作）
+### 3. 可选 CLI（人工或自动化）
 开发者可以直接管理 Agent 自己拥有的配置目录。
 
 ```bash
@@ -111,6 +129,7 @@ dprofile switch coding --target-dir ./my-project/.agent-config
 
 | 命令 | 描述 |
 | :--- | :--- |
+| `dprofile guide` | 说明何时使用 `switch`、`init` 和 `apply`。 |
 | `dprofile list` | 列出库中所有可用的人格套装。 |
 | `dprofile init` | 为一个或多个 AI 助手安装项目 adapter 文件。 |
 | `dprofile apply` | 生成项目 adapter 文件，并可选择激活已验证输出。 |

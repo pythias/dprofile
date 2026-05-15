@@ -7,6 +7,8 @@ description: Use this skill whenever the user wants an Agent to switch, list, in
 
 This skill manages Agent profiles as complete working persona sets, not as one-off prompts.
 
+This `SKILL.md` is the primary interface for Agent behavior. It defines judgment, target classification, adapter selection, and safety policy. The `dprofile` CLI is secondary: it is a deterministic executor for professional users, scripts, and Agents that need command help when the skill is not installed.
+
 The skill directory is the profile library. It is not necessarily the active Agent configuration directory, and it is not necessarily a code project that should receive generated files.
 
 A profile is a source package containing:
@@ -223,7 +225,9 @@ If the format does not support comments, record ownership in `.dprofile/state.js
 
 ## CLI
 
-The bundled CLI performs deterministic file operations. It is intended for professional users and automation. The Agent remains responsible for target classification, adapter selection, and safety checks.
+The bundled CLI performs deterministic file operations. It is intended for professional users and automation. It also exposes concise fallback guidance through `dprofile --help`, `dprofile init --help`, `dprofile apply --help`, and `dprofile guide`.
+
+The Agent remains responsible for target classification, adapter selection, and safety checks. Prefer this `SKILL.md` for Agent behavior, then use the CLI to execute the chosen operation.
 
 Use CLI commands only after deciding whether the target is an Agent config target or a code project target.
 
