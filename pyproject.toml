@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dprofile"
-version = "0.4.0"
+version = "0.4.1"
 description = "Agent profile switcher for USER.md, SOUL.md, and AGENTS.md persona sets."
 readme = "README.md"
 requires-python = ">=3.10"

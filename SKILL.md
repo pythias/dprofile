@@ -1,6 +1,6 @@
 ---
 name: dprofile
-description: Use this skill whenever the user wants an Agent to apply, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "apply architect profile", "use ops profile", "切到写作人格", "dprofile apply", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must classify the target as either an Agent-owned configuration directory or a code project before changing files.
+description: Use this skill whenever the user wants an Agent to apply, list, inspect, compare, validate, or manage predefined Agent profiles/personas/workspaces across coding agents and IDEs. This includes requests like "apply architect profile", "use ops profile", "切到写作人格", "dprofile apply", or anything involving USER.md, SOUL.md, AGENTS.md, SKILL.md, or IDE-specific agent instruction files. The Agent must pick an install target using the three-tier rule (workspace first, then user code directory, then global home) before changing files.
 ---
 
 # dprofile
@@ -20,44 +20,54 @@ A profile is a source package containing:
 
 Treat these files as dprofile's internal source format. Do not assume every Agent, IDE, or code project should receive these exact filenames.
 
-## Target Classification
+## Install target: three tiers
 
-Before changing files, classify the target:
+Before `apply`, decide **which directory is the install root**. The runner writes `.dprofile/` and native adapter files **relative to that directory**. Pick the **highest tier that applies**; do not skip to a lower tier without a reason.
 
-1. **Agent config target**: a directory owned by a specific Agent runtime or profile system, such as a Codex, Claude, Gemini, or other Agent configuration directory.
-2. **Code project target**: an application, library, repo, workspace, or other code directory that may be opened by many different Agents and IDEs.
+| Priority | Tier | When to use | How to run |
+| --- | --- | --- | --- |
+| 1 | **Workspace** | The tool has a dedicated workspace root (OpenClaw workspace, multi-root session folder, or any path the runtime treats as its workspace, not the whole machine). | `cd <workspace-root>` then `apply` (no `-g`). |
+| 2 | **User code directory** | A git repo, monorepo, or project the user is editing; no separate tool workspace, or workspace equals the repo root. | `cd <project-root>` then `apply` (no `-g`). |
+| 3 | **Global home** | User explicitly wants machine-wide / user-wide agent defaults, or no workspace and no project path applies. **Last resort.** | `apply -g` (writes under `~/.claude`, `~/.gemini`, etc.). |
 
-Rules:
+### Decision rules
 
-1. If the user asks to configure "this Agent", "my Agent", or a named Agent's own profile, treat the target as a global Agent target. Use `apply -g`.
-2. If the user says "this repo", "this project", "workspace", or points at source code, treat the target as a local project target. Use `apply`.
-3. If the target is ambiguous, ask one concise clarifying question before changing files.
+1. **Prefer workspace over project root** when they differ. Example: OpenClaw keeps config under its workspace directory — do not assume the git repo root is the workspace. For Claude Code in a repo, workspace is usually the **project root** (tier 2); tier 1 and 2 collapse to the same path.
+2. **Do not use `-g` for “this project / this workspace / this repo”.** Phrases like “在这个项目里”“这个 workspace”“切到 architect 写代码” → tier 1 or 2, always `cd` to that directory and `apply` without `-g`.
+3. **Use `-g` only for tier 3**: “全局默认人格”“所有项目都用这个”“装到我的 Claude 用户目录（整机）” — and only after confirming there is no workspace or project scope.
+4. **Never treat `~/.claude` or `~/.openclaw` as a substitute for a workspace** when the user scoped work to a workspace or repo. Global homes are not per-workspace.
+5. If workspace path vs project root is unclear, ask one concise question (e.g. “OpenClaw workspace 路径还是 git 仓库根目录？”).
+
+### Examples by tool
+
+| Tool | Typical tier | Install root |
+| --- | --- | --- |
+| Claude Code (repo) | 2 (often same as 1) | Repository root → `CLAUDE.md` |
+| Cursor / Copilot / Codex (repo) | 2 | Repository root |
+| OpenClaw | 1 | Tool workspace directory (verify with user or existing layout) |
+| Machine-wide Claude/Gemini defaults | 3 | `apply -g --ai claude` |
 
 ## Unified Workflow: `apply`
 
-The `apply` command handles Agent configs and code projects: it writes `.dprofile/generated/<adapter>/...` for every requested adapter, then activates verified adapters onto their native paths (see Activation Policy for shared-path rules).
+The `apply` command writes `.dprofile/generated/<adapter>/...` for every requested adapter, then activates verified adapters onto native paths under the **install root** (see Activation Policy).
 
-1. Validate the profile.
-2. Select adapters via `--ai`.
-3. **Local** (default): current directory. **Global** (`-g`): standard homes such as `~/.claude`.
+1. Resolve install tier (table above) and `cd` to that directory for tier 1–2.
+2. Validate the profile.
+3. Select adapters via `--ai`.
+4. Run `apply` without `-g` for tier 1–2; add `-g` only for tier 3.
 
 ```bash
-python scripts/dprofile.py apply linux-expert --ai claude -g
+# Tier 1 or 2: workspace or project root (most common)
+cd /path/to/workspace-or-repo
 python scripts/dprofile.py apply coding --ai claude,cursor
-python scripts/dprofile.py apply coding --ai all --force
+
+# Tier 3: global home only when intended
+python scripts/dprofile.py apply linux-expert --ai claude -g
 ```
 
-When `dprofile` is on `PATH` (installed package), the same invocation is:
+When `dprofile` is on `PATH`, the same commands use the `dprofile` executable.
 
-```bash
-dprofile apply linux-expert --ai claude -g
-dprofile apply coding --ai claude,cursor
-dprofile apply coding --ai all --force
-```
-
-Throughout this skill, **subcommands and flags are identical**; only the prefix differs: `python scripts/dprofile.py` from checkout root, or `dprofile` when installed. If the clone lives elsewhere, use an absolute path to `scripts/dprofile.py`.
-
-The Agent chooses local vs `-g` from target classification (`Target Classification` above).
+Throughout this skill, **subcommands and flags are identical**; only the prefix differs: `python scripts/dprofile.py` from the dprofile checkout, or `dprofile` when installed. If the checkout lives elsewhere, use an absolute path to `scripts/dprofile.py`.
 
 ## Adapter Registry
 
@@ -150,27 +160,31 @@ python scripts/dprofile.py apply coding --ai claude,cursor
 
 Default profile library resolves to bundled `dprofile/profiles/` for that checkout; use `--profiles-dir <path>` if the Agent uses a relocated library.
 
-Use the same runner only after deciding whether the target is an Agent config target or a code project target.
+Use the same runner only after resolving the install tier.
 
-For Agent config targets (Global):
+**Tier 1–2** (run from workspace or project root):
 
 ```bash
+cd /path/to/workspace-or-repo
 python scripts/dprofile.py list
 python scripts/dprofile.py validate-profile architect
-python scripts/dprofile.py apply architect --ai claude -g
-python scripts/dprofile.py show -g --ai claude
-python scripts/dprofile.py diff architect writer
+python scripts/dprofile.py apply architect --ai claude,cursor,copilot
+python scripts/dprofile.py apply architect --ai all --force
 ```
 
-Use `list` knowing the active profile marker uses `.dprofile/state.json` in the **current directory** only (`python scripts/dprofile.py list --help`). For global installs, prefer `show -g --ai <adapter>`.
+`list` reads `.dprofile/state.json` in the **current directory** only (`python scripts/dprofile.py list --help`).
 
-For code project targets:
+**Tier 3** (global home, last resort):
 
 ```bash
-python scripts/dprofile.py apply architect --ai codex
-python scripts/dprofile.py apply architect --ai claude,cursor,copilot
-python scripts/dprofile.py apply architect --ai all
-python scripts/dprofile.py apply architect --ai all --force
+python scripts/dprofile.py apply architect --ai claude -g
+python scripts/dprofile.py show -g --ai claude
+```
+
+**Any tier** — profile library operations (from dprofile checkout or with `--profiles-dir`):
+
+```bash
+python scripts/dprofile.py diff architect writer
 ```
 
 ## Profile Semantics
@@ -193,7 +207,9 @@ Avoid mixing role/personality rules into project-only `AGENTS.md` files unless t
 
 ## Safety
 
-- Never guess a system-level Agent directory. Use `-g` for standard paths.
+- Resolve install tier before `apply`; default to workspace or project root, not `-g`.
+- Use `-g` only for tier 3 (global home). Never use `-g` when the user meant a workspace or repo.
+- Do not guess workspace paths for unverified adapters; use `.dprofile/generated/` and ask or follow existing project conventions.
 - Existing unmanaged activated files are skipped unless `--force` (after backup for managed overwrites).
 - Back up existing target files before replacing managed or forced overwrites.
 - Refuse to replace directories named `USER.md`, `SOUL.md`, `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`.
